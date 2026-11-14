@@ -6,4 +6,6 @@ Implement, review, and commit the change on the current branch. Do not push, cre
 
 Write /storage/issue-jobs/{{ inputs.job }}/result.json:
 {"status":"ready","summary":"what changed","remaining":"what is still missing, or why this completes the issue"}
-If blocked or no useful code change remains, use status "needs_human" and explain why in summary. Do not create an empty commit or pretend the issue is complete. The workflow stops on needs_human.
+If blocked or no useful code change remains, use status "needs_human" and explain why in summary. Do not create an empty commit or pretend the issue is complete. With a useful committed diff, needs_human proceeds to review and draft publication; without a diff the workflow stops.
+
+On a review correction round, review.json and review.md exist in the job directory. Read both and continue the existing contribution: do not select a new increment. Address every blocking finding and write review-response.md in that directory, identifying each finding ID and its fix or reasoned rejection. Do not remove or rewrite reviewer reports or gate state. A disagreement requiring human judgment must be reported honestly. Commit corrections, update result.json, and leave verification and renewed review to the workflow.

@@ -244,7 +244,95 @@ def verify(job, config):
             print((job / "verify.log").read_text()[-16000:])
             raise RuntimeError(message) from None
     write_json(job / "verified.json", {"head": head, "tree": tree})
+    write_json(attempt_file, {"count": attempt - 1})
     print(f"Verification passed for {head}")
+
+
+def prepare_review(job):
+    clean()
+    verified = {
+        "head": command("git", "rev-parse", "HEAD"),
+        "tree": command("git", "rev-parse", "HEAD^{tree}"),
+    }
+    previous = job / "review-request.json"
+    round_number = read_json(previous)["round"] + 1 if previous.exists() else 1
+    if round_number > 3:
+        raise RuntimeError("Two review correction rounds exhausted; needs human attention")
+    write_json(previous, {**verified, "round": round_number})
+    for name in ("review.json", "review-approved.json", "review-complete.json"):
+        (job / name).unlink(missing_ok=True)
+
+
+def review_gate(job):
+    (job / "review-approved.json").unlink(missing_ok=True)
+    clean()
+    request = read_json(job / "review-request.json")
+    review = read_json(job / "review.json")
+    head = command("git", "rev-parse", "HEAD")
+    if (
+        not isinstance(review, dict)
+        or review.get("head") != request["head"]
+        or head != request["head"]
+        or command("git", "rev-parse", "HEAD^{tree}") != request["tree"]
+    ):
+        raise RuntimeError("Review does not match the verified commit")
+    reviewers = review.get("reviewers")
+    if not isinstance(reviewers, dict) or set(reviewers) != {"steve", "david"}:
+        raise RuntimeError("Both Steve and David reviews are required")
+    lines = [f"# Review round {request['round']}", "", f"Commit: `{head}`", ""]
+    blocking, human, ids = False, False, set()
+    for name, report in reviewers.items():
+        if (
+            not isinstance(report, dict)
+            or report.get("status") not in ("complete", "needs_human")
+            or not isinstance(report.get("summary"), str)
+            or not report["summary"].strip()
+            or not isinstance(report.get("findings"), list)
+        ):
+            raise RuntimeError("Invalid reviewer report")
+        human |= report["status"] == "needs_human"
+        lines.extend([f"## {name.title()}", "", report["summary"], ""])
+        for finding in report["findings"]:
+            if (
+                not isinstance(finding, dict)
+                or any(
+                    not isinstance(finding.get(key), str) or not finding[key].strip()
+                    for key in ("id", "location", "problem", "impact")
+                )
+                or finding.get("severity") not in ("blocking", "suggestion")
+                or finding["id"] in ids
+            ):
+                raise RuntimeError("Invalid or duplicate review finding")
+            ids.add(finding["id"])
+            blocking |= finding["severity"] == "blocking"
+            lines.extend(
+                [
+                    f"### {finding['id']} ({finding['severity']})",
+                    "",
+                    finding["location"],
+                    "",
+                    finding["problem"],
+                    "",
+                    finding["impact"],
+                    "",
+                ]
+            )
+    markdown = "\n".join(lines)
+    for secret in verification_secrets():
+        markdown = markdown.replace(secret, "[REDACTED]")
+    (job / "review.md").write_text(markdown)
+    Path(f".fabro-review-{request['round']}.md").write_text(markdown)
+    print(markdown)
+    write_json(
+        job / "review-complete.json",
+        {
+            "head": head,
+            "tree": request["tree"],
+            "needs_human": human,
+        },
+    )
+    if not blocking and not human:
+        write_json(job / "review-approved.json", {"head": head, "tree": request["tree"]})
 
 
 def stage(action, job_id):
@@ -263,13 +351,13 @@ def stage(action, job_id):
             raise RuntimeError("Context artifact path already exists")
         exclude = Path(command("git", "rev-parse", "--git-path", "info/exclude"))
         with exclude.open("a") as stream:
-            stream.write("\n/.fabro-context.md\n")
+            stream.write("\n/.fabro-context.md\n/.fabro-review-*.md\n")
         artifact.write_text(markdown)
         print(markdown, end="")
     elif action == "result":
         result = read_json(job / "result.json")
         if (
-            result.get("status") != "ready"
+            result.get("status") not in ("ready", "needs_human")
             or not result.get("summary")
             or "remaining" not in result
         ):
@@ -279,8 +367,56 @@ def stage(action, job_id):
             )
         if not command("git", "diff", "--name-only", config["base_sha"], "HEAD"):
             raise RuntimeError("No contribution to publish; needs human attention")
+    elif action == "work-ready":
+        if read_json(job / "result.json")["status"] != "ready":
+            raise RuntimeError("Contribution needs human attention; review for draft publication")
+    elif action == "publication":
+        clean()
+        head = {
+            "head": command("git", "rev-parse", "HEAD"),
+            "tree": command("git", "rev-parse", "HEAD^{tree}"),
+        }
+        review = read_json(job / "review-complete.json")
+        if any(review.get(key) != value for key, value in head.items()):
+            raise RuntimeError("Publication requires review of the current commit")
+        if not command("git", "diff", "--name-only", config["base_sha"], "HEAD"):
+            raise RuntimeError("No contribution to publish")
+        result = read_json(job / "result.json")
+        if result.get("status") not in ("ready", "needs_human"):
+            raise RuntimeError("Invalid implementation result")
+        reasons = []
+        if result["status"] == "needs_human":
+            reasons.append("Implementation needs human attention")
+        for filename, reason in (
+            ("verified.json", "Required verification has not passed for this commit"),
+            ("review-approved.json", "Review has unresolved findings or decisions"),
+        ):
+            evidence = job / filename
+            if not evidence.exists() or read_json(evidence) != head:
+                reasons.append(reason)
+        write_json(
+            job / "publication.json",
+            {**head, "mode": "draft" if reasons else "ready", "reasons": reasons},
+        )
+        print(
+            "Publication: " + ("draft — " + "; ".join(reasons) if reasons else "ready for review")
+        )
     elif action == "verify":
         verify(job, config)
+    elif action == "review-prepare":
+        prepare_review(job)
+    elif action == "review-gate":
+        review_gate(job)
+    elif action == "review-decision":
+        if not (job / "review-approved.json").exists():
+            raise RuntimeError("Blocking review findings require correction")
+    elif action == "review-retry":
+        if (
+            read_json(job / "review-request.json")["round"] >= 3
+            or read_json(job / "review-complete.json").get("needs_human")
+            or read_json(job / "result.json")["status"] == "needs_human"
+        ):
+            raise RuntimeError("Two review correction rounds exhausted; needs human attention")
     elif action == "retry":
         if read_json(job / "attempt.json")["count"] >= 3:
             raise RuntimeError("Three verification attempts failed; needs human attention")
@@ -291,7 +427,18 @@ def stage(action, job_id):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="action", required=True)
-    for action in ("context", "result", "verify", "retry"):
+    for action in (
+        "context",
+        "result",
+        "work-ready",
+        "publication",
+        "verify",
+        "retry",
+        "review-prepare",
+        "review-gate",
+        "review-decision",
+        "review-retry",
+    ):
         sub.add_parser(action).add_argument("job")
     args = parser.parse_args()
     try:

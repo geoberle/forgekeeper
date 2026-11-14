@@ -1,0 +1,11 @@
+{
+  "head": "abc123",
+  "reviewers": {
+    "steve": {
+      "status": "complete",
+      "summary": "One correctness issue.",
+      "findings": [{"id": "steve-1", "severity": "blocking", "location": "worker.go:42", "problem": "Error is ignored.", "impact": "Failed writes are reported as successful."}]
+    },
+    "david": {"status": "complete", "summary": "No additional findings.", "findings": []}
+  }
+}

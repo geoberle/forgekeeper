@@ -19,5 +19,5 @@ auto_merge = false
 push = false
 
 [run.artifacts]
-include = [".fabro-context.md"]
+include = [".fabro-context.md", ".fabro-review-*.md"]
 

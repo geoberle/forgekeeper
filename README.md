@@ -132,7 +132,9 @@ Der Ablauf ist:
 1. `context`: Issue, Kommentare, Blocker und PRs laden und Startbedingungen prüfen.
 2. `implement`: Codex verwendet den Implement-Skill und committet seinen Beitrag.
 3. `result` / `verify`: Ergebnis prüfen und feste Projektkommandos ausführen. Bei fehlgeschlagenen Prüfungen sind höchstens zwei Reparaturrunden erlaubt.
-4. `pr`: Codex verwendet den PR-Skill, pusht und öffnet den PR mit Git/`gh`. Anschließend verknüpft er ihn mit Fabro.
+4. `review`: Steve und David prüfen denselben getesteten Commit in einem ACP-Step. Das deterministische Gate verlangt beide Berichte. Blockierende Findings gehen als `review.json` und `review.md` zurück an `implement`; nach höchstens zwei Korrekturrunden bleibt der Beitrag ein Draft. Notwendige menschliche Entscheidungen führen ebenfalls zum Draft; ungültige Berichte stoppen den Run. Nach Änderungen laufen Tests und beide Reviews erneut.
+5. `publication`: Ein Code-Gate erlaubt einen normalen PR nur mit erfolgreicher Verifikation und Review-Freigabe für denselben Commit. Brauchbare Beiträge mit blockierten Prüfungen, offenen Findings oder `needs_human` werden als Draft veröffentlicht. Ohne Diff stoppt der Run.
+6. `pr`: Codex verwendet den PR-Skill, pusht und öffnet den PR mit Git/`gh`. Anschließend verknüpft er ihn mit Fabro.
 
 Ein Teilbeitrag verwendet `Part of #N`; eine vollständige Umsetzung darf `Fixes #N` verwenden. Prüfe das beim Review. Der Run endet nach der PR-Erstellung; GitHub-CI kann dann noch laufen. Kein Automerge und kein automatisches Warten auf den Merge.
 
@@ -146,6 +148,7 @@ Prüfkommandos erhalten eine eingeschränkte Umgebung ohne vererbte Token-Variab
 
 - **`context` → Output:** vollständiger Issue-Kontext als Markdown-Text.
 - **Artifacts → `.fabro-context.md`:** denselben Kontext herunterladen. Die Artefaktansicht rendert Markdown derzeit nicht direkt.
+- **`review_gate` → Output / Artifacts → `.fabro-review-N.md`:** beide Review-Berichte pro Runde. Die Antworten des Implementierers liegen im Job-Verzeichnis unter `review-response.md`.
 - **`verify` → Output:** Ausgabe bei einer fehlgeschlagenen Prüfung. Das vollständige Prüfprotokoll liegt außerdem im Job-Verzeichnis.
 - **Run-Kopf / Run-Liste:** PR-Link, sobald der Agent `fabro pr link` ausgeführt hat. GitHub-Details können ohne separate Fabro-GitHub-Integration fehlen.
 

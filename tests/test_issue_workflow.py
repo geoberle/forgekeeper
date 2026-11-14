@@ -282,5 +282,172 @@ class ContextTests(unittest.TestCase):
                 os.chdir(previous)
 
 
+class ReviewTests(unittest.TestCase):
+    def test_gate_routes_findings_and_rejects_invalid_evidence(self):
+        import copy
+
+        fixture = json.loads((Path(__file__).parent / "fixtures/review.json").read_text())
+        cases = [
+            ("blocking", None, None, False),
+            ("approved", "clear", None, True),
+            ("suggestion", "suggestion", None, True),
+            ("missing reviewer", "missing", "Both Steve", False),
+            ("stale commit", "stale", "verified commit", False),
+            ("malformed finding", "malformed", "Invalid", False),
+            ("duplicate id", "duplicate", "duplicate", False),
+            ("human", "human", None, False),
+        ]
+        for name, mutation, error, approved in cases:
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as directory:
+                job = Path(directory)
+                report = copy.deepcopy(fixture)
+                if mutation == "clear":
+                    report["reviewers"]["steve"]["findings"] = []
+                elif mutation == "suggestion":
+                    report["reviewers"]["steve"]["findings"][0]["severity"] = "suggestion"
+                elif mutation == "missing":
+                    del report["reviewers"]["david"]
+                elif mutation == "stale":
+                    report["head"] = "old"
+                elif mutation == "malformed":
+                    del report["reviewers"]["steve"]["findings"][0]["impact"]
+                elif mutation == "duplicate":
+                    report["reviewers"]["david"]["findings"] = report["reviewers"]["steve"][
+                        "findings"
+                    ]
+                elif mutation == "human":
+                    report["reviewers"]["david"]["status"] = "needs_human"
+                workflow.write_json(job / "review.json", report)
+                workflow.write_json(
+                    job / "review-request.json", {"head": "abc123", "tree": "tree", "round": 1}
+                )
+                (job / "review-approved.json").write_text("{}")
+                previous = Path.cwd()
+                try:
+                    os.chdir(job)
+                    with (
+                        patch.object(workflow, "clean"),
+                        patch.object(workflow, "command", side_effect=["abc123", "tree"]),
+                        patch.object(workflow, "verification_secrets", return_value=[]),
+                    ):
+                        if error:
+                            with self.assertRaisesRegex(RuntimeError, error):
+                                workflow.review_gate(job)
+                        else:
+                            workflow.review_gate(job)
+                    self.assertEqual((job / "review-approved.json").exists(), approved)
+                    if name == "blocking":
+                        expected = (Path(__file__).parent / "fixtures/review.md").read_text()
+                        self.assertEqual((job / "review.md").read_text(), expected)
+                        self.assertEqual((job / ".fabro-review-1.md").read_text(), expected)
+                finally:
+                    os.chdir(previous)
+
+    def test_review_decision_requires_approval(self):
+        for approved in (False, True):
+            with self.subTest(approved=approved), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                job = root / ("a" * 32)
+                job.mkdir()
+                (job / "config.json").write_text("{}")
+                if approved:
+                    workflow.write_json(
+                        job / "review-approved.json", {"head": "sha", "tree": "tree"}
+                    )
+                with patch.object(workflow, "STORAGE", root):
+                    if approved:
+                        workflow.stage("review-decision", job.name)
+                    else:
+                        with self.assertRaisesRegex(RuntimeError, "Blocking review findings"):
+                            workflow.stage("review-decision", job.name)
+
+    def test_review_retry_budget(self):
+        for round_number in (1, 2, 3):
+            with self.subTest(round=round_number), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                job = root / ("a" * 32)
+                job.mkdir()
+                (job / "config.json").write_text("{}")
+                workflow.write_json(job / "result.json", {"status": "ready"})
+                workflow.write_json(job / "review-complete.json", {"needs_human": False})
+                workflow.write_json(job / "review-request.json", {"round": round_number})
+                with patch.object(workflow, "STORAGE", root):
+                    if round_number == 3:
+                        with self.assertRaisesRegex(RuntimeError, "Two review correction"):
+                            workflow.stage("review-retry", job.name)
+                    else:
+                        workflow.stage("review-retry", job.name)
+
+    def test_new_review_invalidates_previous_results_but_preserves_feedback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            job = Path(directory)
+            workflow.write_json(job / "verified.json", {"head": "new", "tree": "tree"})
+            workflow.write_json(job / "review-request.json", {"round": 1})
+            (job / "review.json").write_text("old result")
+            (job / "review-approved.json").write_text("old approval")
+            (job / "review.md").write_text("previous findings")
+            with (
+                patch.object(workflow, "clean"),
+                patch.object(workflow, "command", side_effect=["new", "tree"]),
+            ):
+                workflow.prepare_review(job)
+            self.assertFalse((job / "review.json").exists())
+            self.assertFalse((job / "review-approved.json").exists())
+            self.assertEqual((job / "review.md").read_text(), "previous findings")
+            self.assertEqual(workflow.read_json(job / "review-request.json")["round"], 2)
+
+
+class PublicationTests(unittest.TestCase):
+    def test_publication_requires_current_evidence_for_ready_pr(self):
+        for case, expected in (
+            ("passed", "ready"),
+            ("blocked", "draft"),
+            ("human", "draft"),
+            ("findings", "draft"),
+            ("stale", "draft"),
+            ("wrong_review", None),
+            ("empty", None),
+        ):
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                job = root / ("a" * 32)
+                job.mkdir()
+                workflow.write_json(job / "config.json", {"base_sha": "base"})
+                workflow.write_json(
+                    job / "result.json", {"status": "needs_human" if case == "human" else "ready"}
+                )
+                workflow.write_json(
+                    job / "review-complete.json",
+                    {"head": "old" if case == "wrong_review" else "head", "tree": "tree"},
+                )
+                if case != "blocked":
+                    workflow.write_json(
+                        job / "verified.json",
+                        {"head": "old" if case == "stale" else "head", "tree": "tree"},
+                    )
+                if case != "findings":
+                    workflow.write_json(
+                        job / "review-approved.json", {"head": "head", "tree": "tree"}
+                    )
+                with (
+                    patch.object(workflow, "STORAGE", root),
+                    patch.object(workflow, "clean"),
+                    patch.object(
+                        workflow,
+                        "command",
+                        side_effect=["head", "tree", "" if case == "empty" else "file.go"],
+                    ),
+                ):
+                    if expected is None:
+                        with self.assertRaises(RuntimeError):
+                            workflow.stage("publication", job.name)
+                        self.assertFalse((job / "publication.json").exists())
+                    else:
+                        workflow.stage("publication", job.name)
+                        self.assertEqual(
+                            workflow.read_json(job / "publication.json")["mode"], expected
+                        )
+
+
 if __name__ == "__main__":
     unittest.main()

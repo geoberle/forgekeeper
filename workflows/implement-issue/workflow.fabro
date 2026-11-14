@@ -1,18 +1,34 @@
 digraph ImplementIssue {
-    graph [default_max_retries=0, max_node_visits=3]
+    graph [default_max_retries=0, max_node_visits=5]
     start [shape=Mdiamond]
     exit [shape=Msquare]
     context [script="python3 /experiment/scripts/issue-workflow.py context {{ inputs.job }}", on_failure="exit"]
     implement [backend="acp", acp.command="/experiment/scripts/issue-agent.sh", prompt="@prompts/implement.md", on_failure="exit"]
     result [script="python3 /experiment/scripts/issue-workflow.py result {{ inputs.job }}", on_failure="exit"]
     verify [script="python3 /experiment/scripts/issue-workflow.py verify {{ inputs.job }}"]
-    retry [script="python3 /experiment/scripts/issue-workflow.py retry {{ inputs.job }}", on_failure="exit"]
+    retry [script="python3 /experiment/scripts/issue-workflow.py retry {{ inputs.job }}"]
     repair [backend="acp", acp.command="/experiment/scripts/issue-agent.sh", prompt="@prompts/repair.md", on_failure="exit", max_visits=2]
+    review_prepare [script="python3 /experiment/scripts/issue-workflow.py review-prepare {{ inputs.job }}", on_failure="exit", max_visits=3]
+    review [backend="acp", acp.command="/experiment/scripts/issue-agent.sh", prompt="@prompts/review.md", on_failure="exit", max_visits=3]
+    review_gate [script="python3 /experiment/scripts/issue-workflow.py review-gate {{ inputs.job }}", on_failure="exit", max_visits=3]
+    review_decision [script="python3 /experiment/scripts/issue-workflow.py review-decision {{ inputs.job }}", max_visits=3]
+    review_retry [script="python3 /experiment/scripts/issue-workflow.py review-retry {{ inputs.job }}", max_visits=3]
+    work_ready [script="python3 /experiment/scripts/issue-workflow.py work-ready {{ inputs.job }}"]
+    publication [script="python3 /experiment/scripts/issue-workflow.py publication {{ inputs.job }}", on_failure="exit"]
     pr [backend="acp", acp.command="/experiment/scripts/issue-agent.sh", prompt="@prompts/pr.md", on_failure="exit"]
 
-    start -> context -> implement -> result -> verify
-    verify -> pr [condition="outcome=succeeded"]
+    start -> context -> implement -> result -> work_ready
+    work_ready -> verify [condition="outcome=succeeded"]
+    work_ready -> review_prepare
+    verify -> review_prepare [condition="outcome=succeeded"]
     verify -> retry
-    retry -> repair -> result
-    pr -> exit
+    retry -> repair [condition="outcome=succeeded"]
+    retry -> review_prepare
+    repair -> result
+    review_prepare -> review -> review_gate -> review_decision
+    review_decision -> publication [condition="outcome=succeeded"]
+    review_decision -> review_retry
+    review_retry -> implement [condition="outcome=succeeded"]
+    review_retry -> publication
+    publication -> pr -> exit
 }
