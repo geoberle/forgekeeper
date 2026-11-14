@@ -1,5 +1,5 @@
 apiVersion: v2
-name: factory
+name: forgekeeper-chart
 description: Fabro and the GitHub issue orchestrator in separate pods
 type: application
 version: 0.1.0

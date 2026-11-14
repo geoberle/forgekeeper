@@ -9,7 +9,7 @@ metadata:
     helm.sh/resource-policy: keep
 spec:
   accessModes:
-    - {{ if eq $name "jobs" }}ReadWriteMany{{ else }}ReadWriteOnce{{ end }}
+    - {{ if eq $name "jobs" }}{{ $storage.accessMode }}{{ else }}ReadWriteOnce{{ end }}
   {{- if $storage.storageClass }}
   storageClassName: {{ $storage.storageClass | quote }}
   {{- end }}

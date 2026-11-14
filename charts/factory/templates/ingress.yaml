@@ -1,0 +1,33 @@
+{{- if .Values.ingress.enabled }}
+{{- $url := urlParse .Values.webURL }}
+{{- if or (ne $url.scheme "https") (not $url.hostname) }}
+{{- fail "Ingress requires an HTTPS webURL with a hostname" }}
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "factory.name" . }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  rules:
+    - host: {{ $url.hostname | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "factory.name" . }}-fabro
+                port:
+                  number: 32276
+  tls:
+    - hosts:
+        - {{ $url.hostname | quote }}
+      secretName: {{ .Values.ingress.tlsSecretName }}
+{{- end }}

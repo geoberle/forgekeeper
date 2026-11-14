@@ -7,7 +7,8 @@ Workflow-Schritte bekommen derzeit keine eigenen Pods.
 
 Fabros Datenbank, Provider-Konfiguration, Codex-Login und Run-Daten liegen auf einem
 privaten RWO-Volume unter `/storage`. Nur `/storage/issue-jobs` wird über ein zweites
-RWX-Volume zwischen den Pods geteilt. Der Orchestrator hält keinen eigenen
+Workspace-Volume zwischen den Pods geteilt (RWX über mehrere Nodes oder RWO
+bei gemeinsamer Platzierung auf einem Node). Der Orchestrator hält keinen eigenen
 dauerhaften Steuerungszustand. Sein HOME liegt auf `emptyDir`.
 
 ## Image und Skills
@@ -36,8 +37,7 @@ Pushes auf `main` bauen das Image und veröffentlichen es nach erfolgreichen
 Image-Smoke-Tests automatisch in GHCR. Bei manuellen Läufen steuert weiterhin
 `publish=true` die Veröffentlichung. Das Image heißt
 `ghcr.io/<owner>/<factory-repository>:sha-<vollständiger-commit>`.
-**Das GHCR-Package privat halten**, weil es Inhalte aus dem privaten Skills-Repo
-enthält. Änderungen der Skills-Version brauchen einen neuen Image-Build. Builds aus Fork-PRs bekommen keinen Zugang zum
+**Die GHCR-Packages bleiben privat.** Änderungen der Skills-Version brauchen einen neuen Image-Build. Builds aus Fork-PRs bekommen keinen Zugang zum
 privaten Repo; die normale Verify-Action benötigt diesen Zugang nicht.
 
 ### Automatische Update-PRs
@@ -78,12 +78,34 @@ Ohne Argument bleibt der bisherige lokale Build aus den installierten Skills
 und Plugin-Caches erhalten. Das Inventar liegt im Image unter
 `/opt/experiment/bundle/skills-manifest.json`.
 
+## Baseline-Chart und Installation
+
+Forgekeeper veröffentlicht zwei OCI-Artefakte in GHCR:
+
+- Container: `ghcr.io/geoberle/forgekeeper:sha-<commit>`
+- Helm-Chart: `oci://ghcr.io/geoberle/forgekeeper-chart`, Version `0.1.0-sha.<commit>`
+
+Die Action paketiert das Chart mit derselben Commit-ID wie das Image. Sie prüft
+beides vor dem Publish und veröffentlicht zuerst das Image, danach das Chart.
+Die konkrete Installation pinnt beide Versionen. Image-Tags bleiben explizit in
+den Values; ein Chart-Upgrade wählt nicht stillschweigend ein anderes Image.
+
+Das Chart enthält keine standortspezifischen Values oder Traefik-CRDs. Es bietet
+Standard-Ingress, konfigurierbare Annotations, StorageClass, Workspace-Zugriffsmodus,
+Node-Auswahl und Referenzen auf vorhandene Secrets. Für Pods auf verschiedenen
+Nodes ist RWX nötig, bei gemeinsamer Platzierung kann RWO verwendet werden.
+
+Die Hermine-Instanz wird im Repository `geoberle/hearth` unter
+`forgekeeper/deploy/` verwaltet. Dort liegen Netzwerk- und Ressourcenwerte,
+Image-/Chart-Pins sowie die Ansible-Einbindung für DNS, TLS-Annotations,
+Traefik-Middleware und Secrets. Forgekeeper baut und veröffentlicht nur Artefakte;
+ein Push führt kein Deployment aus.
+
 ## Installation
 
-Benötigt werden Helm 3, ein Cluster mit einer **ReadWriteMany-fähigen StorageClass**
-und Zugang zum privaten Image. Die übliche Kind-StorageClass alleine bietet kein
-RWX; dafür einen geeigneten Provisioner oder ein vorhandenes gemeinsames PVC
-bereitstellen. Das Server-Volume benötigt gewöhnlichen RWO-Block-/Dateispeicher;
+Benötigt werden Helm 3, persistenter Speicher und Zugang zum privaten Image.
+Der Standard nutzt RWX für Workspaces auf mehreren Nodes. Bei gemeinsamer
+Platzierung auf einem Node reicht RWO; die konkrete Installation legt dies fest. Das Server-Volume benötigt gewöhnlichen RWO-Block-/Dateispeicher;
 die SQLite-Datenbank nicht auf das gemeinsame RWX-Volume verschieben.
 
 ```bash
