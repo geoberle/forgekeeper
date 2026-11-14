@@ -1,0 +1,35 @@
+image:
+  repository: ghcr.io/geoberle/software-factory
+  tag: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+# Existing Secret: github-pat, FABRO_DEV_TOKEN, SESSION_SECRET.
+secretName: factory-auth
+webURL: http://localhost:32277
+orchestrator:
+  preview: true
+  interval: 1m
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+fabro:
+  resources:
+    requests:
+      cpu: "1"
+      memory: 2Gi
+    limits:
+      memory: 8Gi
+storage:
+  server:
+    size: 20Gi
+    storageClass: ""
+    existingClaim: ""
+  jobs:
+    size: 20Gi
+    storageClass: ""
+    existingClaim: ""
+# One YAML document per key. Supply your projects explicitly at installation.
+projects: {}

@@ -1,0 +1,63 @@
+name: Build image
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the image to the private GHCR package
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  image:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Read skills pin
+        run: |
+          SKILLS_REF="$(cat container/skills-ref)"
+          [[ "$SKILLS_REF" =~ ^[0-9a-f]{40}$ ]]
+          echo "SKILLS_REF=$SKILLS_REF" >> "$GITHUB_ENV"
+      - name: Checkout versioned skills and agents
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          repository: geoberle/skillshare-config
+          ref: ${{ env.SKILLS_REF }}
+          token: ${{ secrets.SKILLS_READ_TOKEN || github.token }}
+          path: .local/skillshare
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        with:
+          python-version: '3.13.1'
+      - name: Prepare isolated build context
+        run: python3 scripts/image-context.py --skills-source .local/skillshare
+      - name: Build
+        env:
+          REPOSITORY: ${{ github.repository }}
+          REVISION: ${{ github.sha }}
+        run: |
+          IMAGE="ghcr.io/${REPOSITORY,,}:sha-${REVISION}"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+          docker build --label "org.opencontainers.image.revision=$REVISION" \
+            --label "io.factory.skills.revision=$SKILLS_REF" \
+            -t "$IMAGE" .local/build
+          docker run --rm --entrypoint orchestrator "$IMAGE" --help
+          docker run --rm --entrypoint sh "$IMAGE" -ec \
+            'test -s /opt/experiment/bundle/skills/implement/SKILL.md; test -x /experiment/scripts/issue-agent.sh'
+      - name: Publish
+        if: github.event_name == 'workflow_dispatch' && inputs.publish
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          trap 'docker logout ghcr.io' EXIT
+          docker push "$IMAGE"

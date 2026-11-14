@@ -1,0 +1,17 @@
+image:
+  repository: ghcr.io/geoberle/software-factory
+  tag: sha-REPLACE_WITH_BUILT_COMMIT
+storage:
+  jobs:
+    storageClass: REPLACE_WITH_RWX_STORAGE_CLASS
+projects:
+  pi5-eeprom-probe:
+    repository: geoberle/pi5-eeprom-probe
+    instructions: |-
+      Read docs/ci-spec.md before editing. Missing firmware/QEMU fixtures must
+      be reported as blocked; never claim those scenarios passed. Do not access
+      physical hardware, host disks, credentials, or external QEMU checkouts.
+    verification:
+      - >-
+        GOMODCACHE="$PWD/.cache/gomod" GOCACHE="$PWD/.cache/go-build"
+        GOLANGCI_LINT_CACHE="$PWD/.cache/golangci-lint" make verify

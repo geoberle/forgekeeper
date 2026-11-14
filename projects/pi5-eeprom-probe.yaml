@@ -1,0 +1,13 @@
+repository: geoberle/pi5-eeprom-probe
+
+instructions: |-
+  Read docs/ci-spec.md before editing. make verify includes Go/C builds and differential
+  integration tests. Firmware and QEMU scenarios need additional fixtures absent from a
+  fresh clone. If acceptance requires missing fixtures, stop as blocked; never claim those
+  scenarios passed. Do not access physical hardware, host disks, host credentials, or
+  external QEMU checkouts.
+
+verification:
+  - >-
+    GOMODCACHE="$PWD/.cache/gomod" GOCACHE="$PWD/.cache/go-build"
+    GOLANGCI_LINT_CACHE="$PWD/.cache/golangci-lint" make verify

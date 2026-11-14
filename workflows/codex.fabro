@@ -1,0 +1,19 @@
+digraph CodexImplementation {
+    graph [goal="Fix the addition function using the implement skill; preserve the tests"]
+    start [shape=Mdiamond]
+    exit [shape=Msquare]
+    implement [
+        backend="acp",
+        acp.command="env INITIAL_AGENT_MODE=agent-full-access CODEX_HOME=/storage/home/.codex /usr/local/bin/codex-acp",
+        prompt="Use the implement skill at /storage/home/.agents/skills/implement/SKILL.md. Fix calculator.add so the existing unittest suite passes. Read the tdd and code-review skill files if no Skill tool is available. Do not modify tests. Keep the change minimal. This is a local disposable repository: do not contact GitHub, create PRs, or merge. Commit the change."
+    ]
+    tests [script="python3 -B -m unittest -v"]
+    approve [shape=hexagon, label="Review the tested Codex change. Finish without merging?"]
+    done [script="echo human-approved > approved.txt"]
+    start -> implement -> tests
+    tests -> approve [condition="outcome=succeeded"]
+    tests -> implement
+    approve -> done [label="Approve"]
+    approve -> implement [label="Revise"]
+    done -> exit
+}

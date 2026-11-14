@@ -1,0 +1,36 @@
+_version = 1
+
+[server.listen]
+type = "tcp"
+address = "0.0.0.0:32276"
+
+[server.api]
+url = "http://localhost:32277/api/v1"
+
+[server.web]
+enabled = true
+url = "http://localhost:32277"
+
+[server.auth]
+methods = ["dev-token"]
+
+[server.storage]
+root = "/storage"
+
+[server.scheduler]
+max_concurrent_runs = 1
+
+# Local refers to the inside of the Podman container, never the Mac host.
+[server.sandbox.providers.local]
+enabled = true
+[server.sandbox.providers.docker]
+enabled = false
+[server.sandbox.providers.daytona]
+enabled = false
+
+[run.environment]
+id = "local"
+
+[run.git.author]
+name = "Fabro Experiment"
+email = "fabro-experiment@localhost"

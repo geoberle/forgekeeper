@@ -1,0 +1,3 @@
+# Orchestrierungszustand in GitHub und Fabro
+
+GitHub-Issues, PRs und Fehlerkommentare sowie Fabro-Runs bilden den dauerhaften Zustand; der Orchestrator führt keine lokale Zustandsdatenbank. Runs werden über Repository und Issue zugeordnet, Retry-Freigaben über den konkreten fehlgeschlagenen Run. Das kurzzeitige Sichtbarkeitsfenster zwischen Fabros Run-Persistierung und Listenprojektion wird auf ausdrücklichen Wunsch akzeptiert: Wir verzichten auf zusätzliche Startabsichten und eine Exactly-once-Garantie für Create zugunsten einer einfacheren, aus den vorhandenen Systemen rekonstruierbaren Steuerung.

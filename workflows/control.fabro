@@ -1,0 +1,19 @@
+digraph Control {
+    graph [goal="Prove command failure routing and a human checkpoint"]
+    start [shape=Mdiamond]
+    exit [shape=Msquare]
+    tests [script="python3 -B -m unittest -v"]
+    repair [script="printf 'def add(a, b):\n    return a + b\n' > calculator.py"]
+    approve [shape=hexagon, label="Tests passed. Finish this local experiment?"]
+    done [script="echo human-approved > approved.txt"]
+    rejected [script="echo human-rejected > rejected.txt"]
+
+    start -> tests
+    tests -> approve [condition="outcome=succeeded"]
+    tests -> repair
+    repair -> tests
+    approve -> done [label="Approve"]
+    approve -> rejected [label="Reject"]
+    done -> exit
+    rejected -> exit
+}

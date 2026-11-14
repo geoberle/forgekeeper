@@ -1,0 +1,20 @@
+{{- range $name, $storage := .Values.storage }}
+{{- if not $storage.existingClaim }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "factory.name" $ }}-{{ $name }}
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  accessModes:
+    - {{ if eq $name "jobs" }}ReadWriteMany{{ else }}ReadWriteOnce{{ end }}
+  {{- if $storage.storageClass }}
+  storageClassName: {{ $storage.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ $storage.size }}
+{{- end }}
+{{- end }}

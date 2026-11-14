@@ -1,0 +1,23 @@
+_version = 1
+
+[workflow]
+graph = "workflow.fabro"
+
+[run]
+goal = "Implement one independently verifiable contribution to {{ inputs.repository }}#{{ inputs.issue }}"
+
+[run.inputs]
+repository = ""
+issue = 0
+job = ""
+
+[run.pull_request]
+enabled = false
+auto_merge = false
+
+[run.run_branch]
+push = false
+
+[run.artifacts]
+include = [".fabro-context.md"]
+

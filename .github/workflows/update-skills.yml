@@ -1,0 +1,72 @@
+name: Update skills
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+concurrency:
+  group: update-skills
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Checkout latest skills
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          repository: geoberle/skillshare-config
+          ref: main
+          token: ${{ secrets.SKILLS_READ_TOKEN || github.token }}
+          path: .local/skillshare
+          persist-credentials: false
+      - name: Compare and update pin
+        id: pin
+        run: |
+          old="$(cat container/skills-ref)"
+          new="$(git -C .local/skillshare rev-parse HEAD)"
+          [[ "$old" =~ ^[0-9a-f]{40}$ && "$new" =~ ^[0-9a-f]{40}$ ]]
+          echo "old=$old" >> "$GITHUB_OUTPUT"
+          echo "new=$new" >> "$GITHUB_OUTPUT"
+          if [ "$old" != "$new" ]; then
+            printf '%s\n' "$new" > container/skills-ref
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+        if: steps.pin.outputs.changed == 'true'
+        with:
+          python-version: '3.13.1'
+      - name: Validate new bundle
+        if: steps.pin.outputs.changed == 'true'
+        run: python3 scripts/image-context.py --skills-source .local/skillshare
+      - name: Create or update pull request
+        id: pr
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676  # v7
+        with:
+          branch: automation/update-skills
+          base: main
+          add-paths: container/skills-ref
+          delete-branch: true
+          commit-message: 'chore: update Skillshare pin'
+          title: 'chore: update Skillshare skills and agents'
+          body: |
+            Updates the bundled skills and agents from `geoberle/skillshare-config/main`.
+
+            [Review skill changes](https://github.com/geoberle/skillshare-config/compare/${{ steps.pin.outputs.old }}...${{ steps.pin.outputs.new }})
+
+            The new bundle passed required-skill and resource-boundary validation.
+            Verify is dispatched explicitly for this branch. Merge manually to build
+            the image; publishing and deployment remain separate actions.
+      - name: Start verification explicitly
+        if: steps.pr.outputs.pull-request-operation == 'created' || steps.pr.outputs.pull-request-operation == 'updated'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run verify.yml --ref automation/update-skills

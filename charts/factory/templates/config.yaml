@@ -1,0 +1,45 @@
+{{- if not .Values.projects }}
+{{- fail "Set projects to at least one project YAML document" }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "factory.name" . }}-projects
+data:
+{{- range $name, $project := .Values.projects }}
+  {{ $name }}.yaml: |
+    {{- toYaml $project | nindent 4 }}
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "factory.name" . }}-settings
+data:
+  settings.toml: |
+    _version = 1
+    [server.listen]
+    type = "tcp"
+    address = "0.0.0.0:32276"
+    [server.api]
+    url = {{ printf "%s/api/v1" (.Values.webURL | trimSuffix "/") | toJson }}
+    [server.web]
+    enabled = true
+    url = {{ .Values.webURL | toJson }}
+    [server.auth]
+    methods = ["dev-token"]
+    [server.storage]
+    root = "/storage"
+    [server.scheduler]
+    max_concurrent_runs = 1
+    [server.sandbox.providers.local]
+    enabled = true
+    [server.sandbox.providers.docker]
+    enabled = false
+    [server.sandbox.providers.daytona]
+    enabled = false
+    [run.environment]
+    id = "local"
+    [run.git.author]
+    name = "Fabro Bot"
+    email = "fabro-bot@localhost"
