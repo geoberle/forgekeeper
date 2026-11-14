@@ -293,6 +293,7 @@ class ReviewTests(unittest.TestCase):
             ("suggestion", "suggestion", None, True),
             ("missing reviewer", "missing", "Both Steve", False),
             ("stale commit", "stale", "verified commit", False),
+            ("checkpoint", "checkpoint", None, False),
             ("malformed finding", "malformed", "Invalid", False),
             ("duplicate id", "duplicate", "duplicate", False),
             ("human", "human", None, False),
@@ -327,7 +328,14 @@ class ReviewTests(unittest.TestCase):
                     os.chdir(job)
                     with (
                         patch.object(workflow, "clean"),
-                        patch.object(workflow, "command", side_effect=["abc123", "tree"]),
+                        patch.object(
+                            workflow,
+                            "command",
+                            side_effect=[
+                                "checkpoint" if mutation == "checkpoint" else "abc123",
+                                "tree",
+                            ],
+                        ),
                         patch.object(workflow, "verification_secrets", return_value=[]),
                     ):
                         if error:
@@ -418,12 +426,12 @@ class PublicationTests(unittest.TestCase):
                 )
                 workflow.write_json(
                     job / "review-complete.json",
-                    {"head": "old" if case == "wrong_review" else "head", "tree": "tree"},
+                    {"head": "old", "tree": "changed" if case == "wrong_review" else "tree"},
                 )
                 if case != "blocked":
                     workflow.write_json(
                         job / "verified.json",
-                        {"head": "old" if case == "stale" else "head", "tree": "tree"},
+                        {"head": "old", "tree": "changed" if case == "stale" else "tree"},
                     )
                 if case != "findings":
                     workflow.write_json(

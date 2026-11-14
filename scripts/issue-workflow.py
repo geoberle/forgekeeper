@@ -272,7 +272,6 @@ def review_gate(job):
     if (
         not isinstance(review, dict)
         or review.get("head") != request["head"]
-        or head != request["head"]
         or command("git", "rev-parse", "HEAD^{tree}") != request["tree"]
     ):
         raise RuntimeError("Review does not match the verified commit")
@@ -377,7 +376,7 @@ def stage(action, job_id):
             "tree": command("git", "rev-parse", "HEAD^{tree}"),
         }
         review = read_json(job / "review-complete.json")
-        if any(review.get(key) != value for key, value in head.items()):
+        if review.get("tree") != head["tree"]:
             raise RuntimeError("Publication requires review of the current commit")
         if not command("git", "diff", "--name-only", config["base_sha"], "HEAD"):
             raise RuntimeError("No contribution to publish")
@@ -392,7 +391,7 @@ def stage(action, job_id):
             ("review-approved.json", "Review has unresolved findings or decisions"),
         ):
             evidence = job / filename
-            if not evidence.exists() or read_json(evidence) != head:
+            if not evidence.exists() or read_json(evidence).get("tree") != head["tree"]:
                 reasons.append(reason)
         write_json(
             job / "publication.json",
