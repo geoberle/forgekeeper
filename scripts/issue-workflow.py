@@ -290,7 +290,16 @@ def review_gate(job):
         ):
             raise RuntimeError("Invalid reviewer report")
         human |= report["status"] == "needs_human"
-        lines.extend([f"## {name.title()}", "", report["summary"], ""])
+        lines.extend(
+            [
+                f"## {name.title()}",
+                "",
+                report["summary"],
+                "",
+                f"Risk: {report.get('risk', 'unknown')} — {report.get('risk_reason', 'No risk assessment')}",
+                "",
+            ]
+        )
         for finding in report["findings"]:
             if (
                 not isinstance(finding, dict)

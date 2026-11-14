@@ -151,6 +151,7 @@ func (o *Options) feedbackCycle(ctx context.Context, runs []Run) (*Decision, err
 		managed := map[int]string{}
 		cursors := map[int]feedbackCursor{}
 		latestFeedback := map[int]Run{}
+		latestRun := map[int]Run{}
 		for _, r := range runs {
 			issueRepo, issueText, ok := strings.Cut(r.Labels["github_issue"], "#")
 			if !ok || !strings.EqualFold(issueRepo, project.Repository) {
@@ -180,6 +181,9 @@ func (o *Options) feedbackCycle(ctx context.Context, runs []Run) (*Decision, err
 				return nil, errors.New("conflicting PR issue identity")
 			}
 			managed[number] = issueText
+			if old, ok := latestRun[number]; !ok || r.Timestamps.CreatedAt.After(old.Timestamps.CreatedAt) || (r.Timestamps.CreatedAt.Equal(old.Timestamps.CreatedAt) && r.ID > old.ID) {
+				latestRun[number] = r
+			}
 			if len(r.Labels["feedback_cursor"]) > 0 {
 				old, exists := latestFeedback[number]
 				if !exists || r.Timestamps.CreatedAt.After(old.Timestamps.CreatedAt) ||
@@ -204,7 +208,7 @@ func (o *Options) feedbackCycle(ctx context.Context, runs []Run) (*Decision, err
 			if err != nil {
 				return nil, errors.New("managed PR lookup failed")
 			}
-			if pr.GetState() != "open" || pr.GetMerged() {
+			if pr.GetState() != "open" || pr.GetMerged() || o.BotID == 0 || pr.GetUser().GetID() != o.BotID {
 				continue
 			}
 			if !strings.EqualFold(pr.GetHead().GetRepo().GetFullName(), project.Repository) {
@@ -230,6 +234,11 @@ func (o *Options) feedbackCycle(ctx context.Context, runs []Run) (*Decision, err
 			}
 			cursor, pending := f.pending(cursors[number], o.RetryUserID, o.BotID)
 			if !pending {
+				if project.AutoMerge {
+					if err := o.mergePR(ctx, project, pr, latestRun[number], f); err != nil {
+						return nil, err
+					}
+				}
 				continue
 			}
 			issue, _ := strconv.Atoi(managed[number])

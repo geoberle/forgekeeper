@@ -6,6 +6,8 @@ Commit: `abc123`
 
 One correctness issue.
 
+Risk: unknown — No risk assessment
+
 ### steve-1 (blocking)
 
 worker.go:42
@@ -17,3 +19,5 @@ Failed writes are reported as successful.
 ## David
 
 No additional findings.
+
+Risk: unknown — No risk assessment

@@ -117,6 +117,14 @@ func (o *ValidatedOptions) Complete(ctx context.Context, logger logr.Logger) (*O
 				return nil, errors.New("empty verification command")
 			}
 		}
+		if p.AutoMerge && len(p.MergeChecks) == 0 {
+			return nil, errors.New("auto_merge requires explicit merge_checks")
+		}
+		for _, check := range p.MergeChecks {
+			if len(strings.TrimSpace(check)) == 0 {
+				return nil, errors.New("empty merge check")
+			}
+		}
 		p.Repository = strings.ToLower(p.Repository)
 		if seen[p.Repository] {
 			return nil, errors.New("duplicate repository configuration")

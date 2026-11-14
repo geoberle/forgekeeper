@@ -136,9 +136,43 @@ Der Ablauf ist:
 5. `publication`: Ein Code-Gate erlaubt einen normalen PR nur mit erfolgreicher Verifikation und Review-Freigabe für denselben Commit. Brauchbare Beiträge mit blockierten Prüfungen, offenen Findings oder `needs_human` werden als Draft veröffentlicht. Ohne Diff stoppt der Run.
 6. `pr`: Codex verwendet den PR-Skill, pusht und öffnet den PR mit Git/`gh`. Anschließend verknüpft er ihn mit Fabro.
 
-Ein Teilbeitrag verwendet `Part of #N`; eine vollständige Umsetzung darf `Fixes #N` verwenden. Prüfe das beim Review. Der Run endet nach der PR-Erstellung; GitHub-CI kann dann noch laufen. Kein Automerge und kein automatisches Warten auf den Merge.
+Ein Teilbeitrag verwendet `Part of #N`; eine vollständige Umsetzung darf `Fixes #N` verwenden. Prüfe das beim Review. Der Run endet nach der PR-Erstellung; GitHub-CI kann dann noch laufen. Der Orchestrator kann anschließend eigene Low-Risk-PRs automatisch mergen, wenn das Projekt `auto_merge: true` setzt.
 
-Nach dem manuellen Merge eines Teil-PRs kannst du dasselbe weiterhin offene, bereite Issue erneut starten; laufendes Polling übernimmt das automatisch. Es beginnt ein neuer Run auf dem aktuellen Default-Branch.
+Auto-Merge wird pro Projekt aktiviert:
+
+```yaml
+auto_merge: true
+merge_checks:
+  - Lint and test
+```
+
+Nur PRs mit der numerischen Autor-ID des authentifizierten Bots und einer
+Forgekeeper-Run-Zuordnung sind für Folgearbeit oder Auto-Merge zugelassen.
+Beide Reviewer müssen den vollständigen PR unabhängig als `risk: low` mit
+`risk_reason` bewerten. Fehlende Risikobewertungen in alten Runs, fehlende
+Verifikation, Blocker, Drafts, Änderungsanforderungen, laufende Folgearbeit und
+abweichende Head- oder Base-SHAs verhindern den Merge. Es gibt keine Dateiallowlist.
+Die Risikobewertung bleibt eine LLM-Entscheidung; die übrigen Bedingungen prüft Code.
+Ein Reply-only-Run erzeugt keine neue Merge-Freigabe.
+
+Alle beobachteten Checks/Status müssen erfolgreich sein. Jeder Eintrag in
+`merge_checks` muss als erfolgreicher GitHub-Actions-Check auf dem veröffentlichten
+Commit existieren; fehlende, übersprungene oder neutrale Checks reichen nicht.
+Private Repositories werden direkt mit erwarteter Head-SHA und einem Merge-Commit
+gemergt, damit die Implementierungscommits erhalten bleiben. Ohne Branch Protection
+können Änderungen an Reviews, Checks oder Base zwischen Prüfung und Merge nicht
+atomar ausgeschlossen werden. Ein neuer Head wird vom Merge-Endpunkt abgewiesen.
+
+Öffentliche Repositories nutzen GitHub Auto-Merge mit erwarteter Head-SHA.
+Auto-Merge und Merge-Commits müssen im Repository erlaubt sein. Branch Protection
+muss aktuelle Branches (`strict`) sowie `forgekeeper/low-risk` und alle
+`merge_checks` verlangen. Der Orchestrator setzt den Risikostatus nur für den
+geprüften Commit; ein neuer Commit benötigt neue Evidenz und einen neuen Status.
+Fehlende Schutzregeln werden nicht automatisch eingerichtet und verhindern die
+Freigabe. `--preview` bleibt vollständig lesend. `auto_merge: false` stoppt neue
+Freigaben; bereits in GitHub aktiviertes Auto-Merge muss dort deaktiviert werden.
+
+Nach dem Merge eines Teil-PRs kannst du dasselbe weiterhin offene, bereite Issue erneut starten; laufendes Polling übernimmt das automatisch. Es beginnt ein neuer Run auf dem aktuellen Default-Branch.
 
 Prüfkommandos erhalten eine eingeschränkte Umgebung ohne vererbte Token-Variablen. Bekannte Secret-Werte werden vor dem Schreiben in Prüf-Logs maskiert; die Ausgabe eines Kommandos erscheint dort erst nach dessen Ende. Das ersetzt keine separate Umgebung ohne Credential-Dateien.
 
@@ -220,7 +254,7 @@ Optionale Funktionstests im laufenden Container:
 ./scripts/run.sh codex    # Codex-ACP-Workflow, benötigt Anmeldung und Modellprovider
 ```
 
-Diese Demo-Workflows öffnen keine GitHub-PRs. Ihr Human-Gate gehört zur Demo; im Issue-Workflow ist das menschliche Review der manuelle PR-Merge.
+Diese Demo-Workflows öffnen keine GitHub-PRs. Ihr Human-Gate gehört zur Demo; im Issue-Workflow bleiben PRs ohne Low-Risk-Freigabe beim manuellen Merge.
 
 ## Grenzen und weiterführende Dokumente
 

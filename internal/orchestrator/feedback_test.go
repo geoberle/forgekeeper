@@ -89,7 +89,7 @@ func TestFeedbackCycleRespectsActiveRun(t *testing.T) {
 	}
 }
 func TestFeedbackCyclePreviewManagedPR(t *testing.T) {
-	for _, state := range []string{"open", "closed", "foreign", "api-error"} {
+	for _, state := range []string{"open", "closed", "foreign", "foreign-author", "api-error"} {
 		t.Run(state, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				switch r.URL.Path {
@@ -106,7 +106,11 @@ func TestFeedbackCyclePreviewManagedPR(t *testing.T) {
 					if state == "closed" {
 						prState = "closed"
 					}
-					_ = json.NewEncoder(w).Encode(map[string]any{"number": 48, "state": prState, "head": map[string]any{"repo": map[string]string{"full_name": repo}}})
+					author := int64(10)
+					if state == "foreign-author" {
+						author = 30
+					}
+					_ = json.NewEncoder(w).Encode(map[string]any{"user": map[string]any{"id": author}, "number": 48, "state": prState, "head": map[string]any{"repo": map[string]string{"full_name": repo}}})
 				case "/repos/owner/repo/issues/48/comments":
 					_, _ = w.Write([]byte(`[{"id":12,"user":{"id":20},"body":"Please fix this"}]`))
 				case "/repos/owner/repo/pulls/48/reviews", "/repos/owner/repo/pulls/48/comments":

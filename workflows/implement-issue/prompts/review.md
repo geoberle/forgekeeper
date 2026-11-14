@@ -16,11 +16,15 @@ Write this exact JSON structure, replacing the sample findings with actual findi
   "reviewers": {
     "steve": {
       "status": "complete",
+      "risk": "high",
+      "risk_reason": "Explain impact, reversibility, coverage and uncertainty",
       "summary": "Review conclusion and scope",
       "findings": [{"id": "steve-1", "severity": "blocking", "location": "path:line", "problem": "Concrete defect", "impact": "Why it matters"}]
     },
     "david": {
       "status": "complete",
+      "risk": "high",
+      "risk_reason": "Explain impact, reversibility, coverage and uncertainty",
       "summary": "Review conclusion and scope",
       "findings": []
     }
@@ -28,3 +32,5 @@ Write this exact JSON structure, replacing the sample findings with actual findi
 }
 
 Status is complete or needs_human. Severity is blocking or suggestion. IDs must be unique across both reviewers. Report missing evidence honestly. Never include credentials in any output.
+
+Assess merge risk independently for the full PR diff, not only the latest correction. Set risk to low, medium or high and provide risk_reason. Low requires bounded, understood impact, adequate tests and no unresolved uncertainty; a small diff alone is insufficient. Missing evidence, security implications, credentials/permissions changes, destructive behavior, or uncertain compatibility are not low risk. No fixed file allowlist applies. Both low-risk verdicts may authorize automatic merge after deterministic checks. Never lower risk merely to make the workflow pass.

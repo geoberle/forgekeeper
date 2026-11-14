@@ -14,6 +14,8 @@ type Project struct {
 	Repository   string   `json:"repository"`
 	Instructions string   `json:"instructions"`
 	Verification []string `json:"verification"`
+	AutoMerge    bool     `json:"auto_merge,omitempty"`
+	MergeChecks  []string `json:"merge_checks,omitempty"`
 }
 
 type Run struct {

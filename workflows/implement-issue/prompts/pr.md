@@ -6,4 +6,4 @@ Use branch `fabro/issue-{{ inputs.issue }}-{{ inputs.job }}` and the base from c
 
 Save the confirmed PR number, URL and head SHA as {"number": 123, "url": "https://github.com/owner/repo/pull/123", "head": "sha"} in /storage/issue-jobs/{{ inputs.job }}/pr.json for the starter. Read the run_id from run.json in that directory and associate the PR with Fabro using `fabro pr link --server http://127.0.0.1:32276 RUN_ID PR_URL`. End your response with the PR URL and verification summary; report a failed association explicitly without creating another PR.
 
-Do not merge, enable auto-merge, close the issue, or change labels. The human reviews and merges every PR.
+Do not merge, enable auto-merge, close the issue, or change labels. The orchestrator alone may merge low-risk PRs after its checks; other PRs require a human.
