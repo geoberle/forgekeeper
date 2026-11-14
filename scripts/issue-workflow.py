@@ -334,6 +334,82 @@ def review_gate(job):
         write_json(job / "review-approved.json", {"head": head, "tree": request["tree"]})
 
 
+def publication_history(job, config):
+    """Build a publication ref without changing the run's HEAD or worktree."""
+    publication = read_json(job / "publication.json")
+    publication.pop("publish_head", None)
+    write_json(job / "publication.json", publication)
+    clean()
+    head = command("git", "rev-parse", "HEAD")
+    if command("git", "rev-parse", "HEAD^{tree}") != publication["tree"]:
+        raise RuntimeError("Publication tree changed after review")
+    base = config.get("expected_head") if "pr" in config else config["base_sha"]
+    if not isinstance(base, str) or not re.fullmatch(r"[a-f0-9]{40}|[a-f0-9]{64}", base):
+        raise RuntimeError("Invalid publication base")
+    command("git", "merge-base", "--is-ancestor", base, head)
+    commits = command("git", "rev-list", "--reverse", f"{base}..{head}").splitlines()
+    parent = base
+    for commit in commits:
+        parents = command("git", "show", "-s", "--format=%P", commit).split()
+        if len(parents) != 1:
+            raise RuntimeError("Cannot remove checkpoints from merge history safely")
+        tree = command("git", "rev-parse", f"{commit}^{{tree}}")
+        raw = subprocess.check_output(["git", "cat-file", "commit", commit])
+        message = raw.split(b"\n\n", 1)[1]
+        title = message.split(b"\n", 1)[0].decode("utf-8", errors="replace")
+        checkpoint = re.fullmatch(r"fabro\(([A-Z0-9]{26})\): (.+) \((?:success|failure)\)", title)
+        if checkpoint:
+            trailers = command("git", "show", "-s", "--format=%(trailers:only,unfold)", commit)
+            checkpoint = f"Fabro-Run: {checkpoint[1]}" in trailers.splitlines() and all(
+                re.search(rf"^{key}: [0-9]+$", trailers, re.M)
+                for key in ("Fabro-Execution", "Fabro-Firing", "Fabro-Attempt")
+            )
+        if checkpoint:
+            if tree == command("git", "rev-parse", f"{parents[0]}^{{tree}}"):
+                continue
+            # A checkpoint can contain uncommitted agent edits: preserve these
+            # as an ordinary content commit instead of silently losing them.
+            message = (
+                f"Preserve changes captured by workflow step\n\nSource-Commit: {commit}\n"
+            ).encode()
+        if parents[0] == parent and not checkpoint:
+            parent = commit
+            continue
+        identity = command(
+            "git", "show", "-s", "--format=%an%x00%ae%x00%aI%x00%cn%x00%ce%x00%cI", commit
+        ).split("\0")
+        env = os.environ.copy()
+        for key, value in zip(
+            (
+                "GIT_AUTHOR_NAME",
+                "GIT_AUTHOR_EMAIL",
+                "GIT_AUTHOR_DATE",
+                "GIT_COMMITTER_NAME",
+                "GIT_COMMITTER_EMAIL",
+                "GIT_COMMITTER_DATE",
+            ),
+            identity,
+        ):
+            env[key] = value
+        parent = (
+            subprocess.check_output(
+                ["git", "-c", "commit.gpgsign=false", "commit-tree", tree, "-p", parent],
+                input=message,
+                env=env,
+            )
+            .decode()
+            .strip()
+        )
+    if command("git", "rev-parse", f"{parent}^{{tree}}") != publication["tree"]:
+        raise RuntimeError("Filtered publication differs from reviewed tree")
+    if command("git", "rev-parse", "HEAD") != head:
+        raise RuntimeError("Run HEAD changed during publication preparation")
+    command("git", "update-ref", f"refs/forgekeeper/publication/{job.name}", parent)
+    publication["publish_head"] = parent
+    write_json(job / "publication.json", publication)
+    print(f"Prepared publication commit {parent}; run history preserved")
+
+
 def stage(action, job_id):
     if not re.fullmatch(r"[a-f0-9]{32}", job_id):
         raise RuntimeError("Invalid job input; use run-issue.sh")
@@ -456,6 +532,8 @@ def stage(action, job_id):
         print(
             "Publication: " + ("draft — " + "; ".join(reasons) if reasons else "ready for review")
         )
+    elif action == "publication-history":
+        publication_history(job, config)
     elif action == "verify":
         verify(job, config)
     elif action == "review-prepare":
@@ -489,6 +567,7 @@ def main():
         "result",
         "work-ready",
         "publication",
+        "publication-history",
         "verify",
         "retry",
         "review-prepare",

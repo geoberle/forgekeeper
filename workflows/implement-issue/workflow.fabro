@@ -15,6 +15,7 @@ digraph ImplementIssue {
     review_retry [script="python3 /experiment/scripts/issue-workflow.py review-retry {{ inputs.job }}", max_visits=3]
     work_ready [script="python3 /experiment/scripts/issue-workflow.py work-ready {{ inputs.job }}"]
     publication [script="python3 /experiment/scripts/issue-workflow.py publication {{ inputs.job }}", on_failure="exit"]
+    history [script="python3 /experiment/scripts/issue-workflow.py publication-history {{ inputs.job }}", on_failure="exit"]
     pr [backend="acp", acp.command="/experiment/scripts/issue-agent.sh", prompt="@prompts/pr.md", on_failure="exit"]
 
     start -> context -> implement -> result -> work_ready
@@ -30,5 +31,5 @@ digraph ImplementIssue {
     review_decision -> review_retry
     review_retry -> implement [condition="outcome=succeeded"]
     review_retry -> publication
-    publication -> pr -> exit
+    publication -> history -> pr -> exit
 }

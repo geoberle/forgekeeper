@@ -264,3 +264,20 @@ unklaren Create-Antwort sucht der nächste Poll den Run anhand seiner Labels.
 Die zuvor bewusst akzeptierte Annahme, dass ein persistierter Run dabei sichtbar
 ist, bleibt bestehen. Fortschritt liegt in Fabro; keine zusätzliche lokale
 Orchestrierungsdatenbank wird angelegt.
+
+## Commit-Historie veröffentlichter PRs
+
+Vor der Veröffentlichung erzeugt der `history`-Step eine separate Git-Referenz.
+Leere Fabro-Checkpoint-Commits werden ausgelassen; Implementierungs-Commits behalten
+Reihenfolge, vollständige Commit-Nachricht und Autorenmetadaten. Durch die neuen
+Eltern-Commits ändern sich ihre SHAs; vorhandene Commit-Signaturen können dabei
+nicht übernommen werden. Nichtleere Checkpoints werden als normale Inhalts-Commits
+erhalten, damit keine uncommitteten Agent-Änderungen verloren gehen.
+
+Der veröffentlichte Git-Tree muss exakt dem geprüften Tree entsprechen. Der
+PR-Agent pusht ausschließlich `publication.json.publish_head`, niemals den
+internen Run-HEAD. Fabros Checkpoints bleiben für Wiederaufnahme und Debugging
+unverändert. Bei Folgearbeit bleibt der bisherige PR-Head erhalten; nur die neu
+hinzugekommenen Commits werden bereinigt. Merge-Commits in diesem neuen Bereich
+stoppen die Veröffentlichung, statt sie stillschweigend zu flatten. Bereits
+veröffentlichte oder gemergte Historie wird nicht nachträglich geändert.
