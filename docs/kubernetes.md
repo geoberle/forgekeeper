@@ -37,7 +37,7 @@ Pushes auf `main` bauen das Image und veröffentlichen es nach erfolgreichen
 Image-Smoke-Tests automatisch in GHCR. Bei manuellen Läufen steuert weiterhin
 `publish=true` die Veröffentlichung. Das Image heißt
 `ghcr.io/<owner>/<factory-repository>:sha-<vollständiger-commit>`.
-**Die GHCR-Packages bleiben privat.** Änderungen der Skills-Version brauchen einen neuen Image-Build. Builds aus Fork-PRs bekommen keinen Zugang zum
+Die tokenfreie Hearth-Installation setzt öffentliche GHCR-Packages voraus. Änderungen der Skills-Version brauchen einen neuen Image-Build. Builds aus Fork-PRs bekommen keinen Zugang zum
 privaten Repo; die normale Verify-Action benötigt diesen Zugang nicht.
 
 ### Automatische Update-PRs
@@ -103,7 +103,7 @@ ein Push führt kein Deployment aus.
 
 ## Installation
 
-Benötigt werden Helm 3, persistenter Speicher und Zugang zum privaten Image.
+Benötigt werden Helm 3, persistenter Speicher und lesbare OCI-Packages.
 Der Standard nutzt RWX für Workspaces auf mehreren Nodes. Bei gemeinsamer
 Platzierung auf einem Node reicht RWO; die konkrete Installation legt dies fest. Das Server-Volume benötigt gewöhnlichen RWO-Block-/Dateispeicher;
 die SQLite-Datenbank nicht auf das gemeinsame RWX-Volume verschieben.
@@ -130,14 +130,20 @@ kubectl -n factory create secret generic factory-auth \
   --from-file=github-pat=.local/secrets/github-pat
 ```
 
-Für private GHCR-Images ein `kubernetes.io/dockerconfigjson`-Secret aus einer
-dedizierten Registry-Konfiguration mit `read:packages` bereitstellen und in den
-Values referenzieren:
+Für öffentliche GHCR-Packages sind weder Registry-Token noch Helm-Login oder
+Image-Pull-Secret nötig. `imagePullSecrets` bleibt dann leer. Der GitHub-Bot-PAT
+für Issues und PRs wird weiterhin benötigt.
+
+Den GitHub-Benutzer für Retry-Freigaben explizit konfigurieren:
 
 ```yaml
-imagePullSecrets:
-  - name: ghcr-pull
+orchestrator:
+  retryUser: YOUR_GITHUB_LOGIN
 ```
+
+Es gibt keinen eingebauten persönlichen Benutzer. Die Orchestrierung löst den
+Login über GitHub zur Benutzer-ID auf und akzeptiert nur dessen Retry-Reaktionen.
+Bei lokalen CLI-Aufrufen entspricht dies `--retry-user YOUR_GITHUB_LOGIN`.
 
 ```bash
 helm upgrade --install factory charts/factory -n factory \

@@ -42,6 +42,7 @@ class HelmTest(unittest.TestCase):
                 storage = next(v for v in pod["volumes"] if v["name"] == "storage")
                 self.assertIn("emptyDir", storage)
                 self.assertEqual("--preview" in pod["containers"][0]["args"], preview)
+                self.assertIn("--retry-user=example-reviewer", pod["containers"][0]["args"])
                 self.assertIn(
                     "--fabro-url=http://test-factory-fabro:32276", pod["containers"][0]["args"]
                 )
@@ -111,3 +112,21 @@ class HelmTest(unittest.TestCase):
         self.assertFalse(any(d["kind"] == "Middleware" for d in documents))
         claims = [d for d in documents if d["kind"] == "PersistentVolumeClaim"]
         self.assertTrue(all(d["spec"]["accessModes"] == ["ReadWriteOnce"] for d in claims))
+
+    def test_retry_user_required(self):
+        result = subprocess.run(
+            [
+                "helm",
+                "template",
+                "test",
+                "charts/factory",
+                "-f",
+                "charts/factory/example-values.yaml",
+                "--set",
+                "orchestrator.retryUser=",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Set orchestrator.retryUser", result.stderr)

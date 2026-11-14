@@ -22,7 +22,7 @@ type RawOptions struct {
 	ProjectsDir, Workflow, Storage, GitHubTokenFile, FabroURL, WebURL string
 	Interval                                                          time.Duration
 	Once, Preview, AllowHTTP                                          bool
-	Repository                                                        string
+	Repository, RetryUser                                             string
 	Issue                                                             int
 }
 
@@ -44,6 +44,7 @@ func BindOptions(o *RawOptions, c *cobra.Command) {
 	f.BoolVar(&o.AllowHTTP, "allow-http-fabro", false, "Allow unencrypted Fabro API traffic on a trusted cluster network")
 	f.BoolVar(&o.Once, "once", false, "Reconcile once")
 	f.BoolVar(&o.Preview, "preview", false, "Read-only: show decisions without starting runs or posting comments")
+	f.StringVar(&o.RetryUser, "retry-user", o.RetryUser, "GitHub login allowed to authorize retries (required)")
 	f.StringVar(&o.Repository, "repo", "", "Restrict selection to one configured repository")
 	f.IntVar(&o.Issue, "issue", 0, "Restrict selection to one issue (requires --repo)")
 }
@@ -62,10 +63,15 @@ type completedOptions struct {
 }
 type Options struct{ *completedOptions }
 
+var loginPattern = regexp.MustCompile(`^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$`)
+
 var repoPattern = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
 var runPattern = regexp.MustCompile(`^[0-9A-HJKMNP-TV-Z]{26}$`)
 
 func (o *RawOptions) Validate() (*ValidatedOptions, error) {
+	if !loginPattern.MatchString(o.RetryUser) || strings.Contains(o.RetryUser, "--") {
+		return nil, errors.New("retry-user must be a GitHub login")
+	}
 	if o.Interval < time.Second || o.Issue < 0 || (o.Issue > 0 && len(o.Repository) == 0) {
 		return nil, errors.New("invalid polling interval or issue selection")
 	}
@@ -137,7 +143,7 @@ func (o *ValidatedOptions) Complete(ctx context.Context, logger logr.Logger) (*O
 	if err != nil {
 		return nil, errors.New("cannot identify GitHub bot")
 	}
-	retryUser, _, err := gh.Users.Get(ctx, "geoberle")
+	retryUser, _, err := gh.Users.Get(ctx, o.raw.RetryUser)
 	if err != nil {
 		return nil, errors.New("cannot identify retry author")
 	}

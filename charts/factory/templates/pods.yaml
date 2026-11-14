@@ -82,6 +82,7 @@ spec:
           args:
             - --fabro-url=http://{{ include "factory.name" $ }}-fabro:32276
             - --allow-http-fabro
+            - {{ printf "--retry-user=%s" (required "Set orchestrator.retryUser to the GitHub login allowed to retry" $.Values.orchestrator.retryUser) | quote }}
             - {{ printf "--web-url=%s" $.Values.webURL | quote }}
             - {{ printf "--interval=%s" $.Values.orchestrator.interval | quote }}
             {{- if $.Values.orchestrator.preview }}

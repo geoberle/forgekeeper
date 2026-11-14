@@ -90,18 +90,18 @@ Der Workflow bleibt für alle Projekte derselbe: [workflows/implement-issue/work
 Erst die Auswahl ohne Änderungen prüfen:
 
 ```bash
-./scripts/orchestrate.sh --preview --once
+./scripts/orchestrate.sh --retry-user YOUR_LOGIN --preview --once
 ```
 
 Die Ausgabe nennt pro Issue die Aktion und den Grund, etwa `not_ready`, `blocked`, `open_pr`, `retry_required` oder `capacity`. Anschließend dauerhaft pollen:
 
 ```bash
-./scripts/orchestrate.sh --interval 1m
+./scripts/orchestrate.sh --retry-user YOUR_LOGIN --interval 1m
 ```
 
 Ein einzelner aktiver Orchestrator koordiniert zunächst **einen aktiven Run insgesamt**. Er wählt das älteste bearbeitbare Issue aus allen `projects/*.yaml`. Ein bereits eingereichter, noch nicht gestarteter Run wird wiederaufgenommen. `--once` gleicht genau einmal ab. Stoppen des Prozesses stoppt keine bereits laufenden Fabro-Runs; der nächste Orchestrator erkennt sie wieder.
 
-Fehlgeschlagene Runs erhalten einen Bot-Kommentar mit Schritt und Fabro-Link. **Nur eine 🚀-Reaktion von `geoberle` auf den Kommentar des jüngsten fehlgeschlagenen Runs** erlaubt einen neuen Versuch. Die Zuordnung erfolgt über GitHub-Benutzer-IDs. Alte oder fremde Reaktionen und kopierte Kommentare anderer Autoren lösen keinen Retry aus. Ready-Label, Abhängigkeiten und PR-Prüfung gelten weiterhin. Nach einem gemergten Teil-PR wird ein weiterhin bereites Issue automatisch erneut berücksichtigt.
+Fehlgeschlagene Runs erhalten einen Bot-Kommentar mit Schritt und Fabro-Link. **Nur eine 🚀-Reaktion vom konfigurierten `--retry-user` auf den Kommentar des jüngsten fehlgeschlagenen Runs** erlaubt einen neuen Versuch. Die Zuordnung erfolgt über GitHub-Benutzer-IDs. Alte oder fremde Reaktionen und kopierte Kommentare anderer Autoren lösen keinen Retry aus. Ready-Label, Abhängigkeiten und PR-Prüfung gelten weiterhin. Nach einem gemergten Teil-PR wird ein weiterhin bereites Issue automatisch erneut berücksichtigt.
 
 GitHub und Fabro sind die Zustandsquellen. Der Prozess verwendet lediglich einen temporären exklusiven Prozesslock. `.local/data/issue-jobs/` enthält weiterhin Arbeitskopien und Workflow-Eingaben, aber keine neue Orchestrierungsdatenbank. Der ausdrücklich akzeptierte seltene Create-/Listen-Sichtbarkeitsfall kann einen Doppelstart verursachen; fehlgeschlagene API-Abfragen werden dagegen niemals als leere Listen behandelt.
 
@@ -110,7 +110,7 @@ GitHub und Fabro sind die Zustandsquellen. Der Prozess verwendet lediglich einen
 Zuerst prüfen, ob das Issue bearbeitbar ist — ohne Run oder GitHub-Änderung:
 
 ```bash
-./scripts/run-issue.sh geoberle/pi5-eeprom-probe 8 --check
+FORGEKEEPER_RETRY_USER=YOUR_LOGIN ./scripts/run-issue.sh owner/repository 8 --check
 ```
 
 Erforderlich sind:

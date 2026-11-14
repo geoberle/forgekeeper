@@ -24,7 +24,7 @@
 ## Fehler und Retry
 
 - Ein Bot-Kommentar pro fehlgeschlagenem Run, mit fester kurzer Fehlerbeschreibung, betroffenem Schritt und Fabro-Link. Kein LLM-Aufruf zur Zusammenfassung.
-- Nur eine 🚀-Reaktion von `geoberle` auf diesen Kommentar autorisiert genau einen neuen Versuch. Alte Reaktionen autorisieren keine späteren Fehlversuche. Normale Startbedingungen gelten weiterhin.
+- Nur eine 🚀-Reaktion vom konfigurierten `--retry-user` auf diesen Kommentar autorisiert genau einen neuen Versuch. Alte Reaktionen autorisieren keine späteren Fehlversuche. Normale Startbedingungen gelten weiterhin.
 - Credentials dürfen niemals in Kommentaren oder Logs erscheinen. Externe Fehlertexte, HTTP-Bodies, Prozessausgaben und Konfiguration werden nicht ungefiltert ausgegeben. Öffentliche Fehlermeldungen stammen aus festen Kategorien; auch internes Logging darf keine Credentials enthalten.
 
 ## Zustand und Wiedererkennung

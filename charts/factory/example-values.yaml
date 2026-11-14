@@ -1,3 +1,5 @@
+orchestrator:
+  retryUser: example-reviewer
 image:
   tag: sha-REPLACE_WITH_BUILT_COMMIT
 storage:

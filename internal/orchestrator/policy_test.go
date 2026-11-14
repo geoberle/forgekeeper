@@ -98,7 +98,7 @@ func TestFailureCommentGolden(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := FailureComment("http://localhost:32277", "01M7ATV7XKXRZAXHWF2F104HQE", "verify") + "\n"; got != string(data) {
+	if got := FailureComment("http://localhost:32277", "01M7ATV7XKXRZAXHWF2F104HQE", "verify", "retry-reviewer") + "\n"; got != string(data) {
 		t.Fatalf("unexpected comment:\n%s", got)
 	}
 }

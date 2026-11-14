@@ -22,6 +22,7 @@ func TestValidateOptions(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			raw := DefaultOptions()
+			raw.RetryUser = "retry-reviewer"
 			raw.FabroURL = tt.url
 			raw.Issue = tt.issue
 			raw.Interval = tt.interval
@@ -59,10 +60,31 @@ func TestClusterHTTPOptIn(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			raw := DefaultOptions()
+			raw.RetryUser = "retry-reviewer"
 			raw.FabroURL, raw.WebURL, raw.AllowHTTP = tt.api, tt.web, tt.allow
 			_, err := raw.Validate()
 			if (err == nil) != tt.valid {
 				t.Fatalf("unexpected validation result: %v", err)
+			}
+		})
+	}
+}
+
+func TestRetryUserValidation(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		valid bool
+	}{
+		{"", false}, {"reviewer", true}, {"other-reviewer", true},
+		{"@reviewer", false}, {"-reviewer", false}, {"reviewer--two", false},
+		{"reviewer\nmalicious", false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			raw := DefaultOptions()
+			raw.RetryUser = tt.name
+			_, err := raw.Validate()
+			if (err == nil) != tt.valid {
+				t.Fatalf("unexpected validation: %v", err)
 			}
 		})
 	}

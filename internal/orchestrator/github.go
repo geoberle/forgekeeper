@@ -31,8 +31,8 @@ func (o *Options) blockers(ctx context.Context, repo string, number int) ([]*git
 	return nil, errors.New("dependency pagination limit exceeded")
 }
 func failureMarker(id string) string { return "<!-- fabro-failure: " + id + " -->" }
-func FailureComment(webURL, id, stage string) string {
-	return fmt.Sprintf("Fabro konnte diesen Versuch nicht erfolgreich abschließen.\n\nSchritt: `%s`\nRun: %s/runs/%s\n\nFür genau einen neuen Versuch: geoberle reagiert hier mit 🚀. Ready-Label, Abhängigkeiten und PR-Prüfung gelten weiterhin.\n\n%s", stage, webURL, id, failureMarker(id))
+func FailureComment(webURL, id, stage, retryUser string) string {
+	return fmt.Sprintf("Fabro konnte diesen Versuch nicht erfolgreich abschließen.\n\nSchritt: `%s`\nRun: %s/runs/%s\n\nFür genau einen neuen Versuch: %s reagiert hier mit 🚀. Ready-Label, Abhängigkeiten und PR-Prüfung gelten weiterhin.\n\n%s", stage, webURL, id, retryUser, failureMarker(id))
 }
 func safeStage(state RunState) string {
 	// Never copy an arbitrary node name or exception into a public comment.
@@ -165,7 +165,7 @@ func (o *Options) snapshot(ctx context.Context) ([]Candidate, []Run, error) {
 }
 func (o *Options) postFailure(ctx context.Context, c Candidate) error {
 	owner, repo, _ := strings.Cut(c.Project.Repository, "/")
-	body := FailureComment(o.raw.WebURL, c.latest().ID, c.FailedStage)
+	body := FailureComment(o.raw.WebURL, c.latest().ID, c.FailedStage, o.raw.RetryUser)
 	_, _, err := o.GitHub.Issues.CreateComment(ctx, owner, repo, c.Issue.GetNumber(), &github.IssueComment{Body: github.Ptr(body)})
 	if err != nil {
 		return errors.New("GitHub failure comment not confirmed; reconcile on next poll")

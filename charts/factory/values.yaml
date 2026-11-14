@@ -14,6 +14,7 @@ ingress:
   annotations: {}
   tlsSecretName: factory-tls
 orchestrator:
+  retryUser: ""  # Required GitHub login for retry authorization.
   preview: true
   interval: 1m
   resources:
