@@ -32,8 +32,9 @@ Fine-grained PAT, ausschließlich Repository `geoberle/skillshare-config`,
 **Contents: Read**. Dieses Build-Secret wird weder an Docker übergeben noch
 zur Laufzeit benötigt. Es ist unabhängig vom GitHub-Bot-PAT.
 
-Pushes auf `main` bauen das Image. Zum Veröffentlichen die Action manuell mit
-`publish=true` starten. Das Image heißt
+Pushes auf `main` bauen das Image und veröffentlichen es nach erfolgreichen
+Image-Smoke-Tests automatisch in GHCR. Bei manuellen Läufen steuert weiterhin
+`publish=true` die Veröffentlichung. Das Image heißt
 `ghcr.io/<owner>/<factory-repository>:sha-<vollständiger-commit>`.
 **Das GHCR-Package privat halten**, weil es Inhalte aus dem privaten Skills-Repo
 enthält. Änderungen der Skills-Version brauchen einen neuen Image-Build. Builds aus Fork-PRs bekommen keinen Zugang zum
@@ -60,8 +61,8 @@ Auf automatisch ausgelöste PR-Workflows verlassen wir uns nicht; GitHub kann da
 Nach Erstellen oder Aktualisieren des PRs wird `Verify` per `workflow_dispatch`
 gestartet. Bei einem Dispatch-Fehler die Verify-Action manuell für
 `automation/update-skills` starten. Der Bundle-Check läuft bereits vor dem PR;
-den eigentlichen Image-Build löst erst dein Merge nach `main` aus. Veröffentlichen
-und Deployment bleiben manuell.
+den Image-Build mit Veröffentlichung in GHCR löst erst dein Merge nach `main`
+aus. Das Deployment bleibt manuell.
 
 Die Workflows müssen zunächst auf `main` im Factory-Repository liegen. Diese
 Vorbereitung erstellt weder einen GitHub-PR noch einen Zeitplan außerhalb von

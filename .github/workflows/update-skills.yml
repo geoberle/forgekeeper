@@ -63,7 +63,7 @@ jobs:
 
             The new bundle passed required-skill and resource-boundary validation.
             Verify is dispatched explicitly for this branch. Merge manually to build
-            the image; publishing and deployment remain separate actions.
+            and publish the image to GHCR. Deployment remains manual.
       - name: Start verification explicitly
         if: steps.pr.outputs.pull-request-operation == 'created' || steps.pr.outputs.pull-request-operation == 'updated'
         env:

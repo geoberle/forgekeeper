@@ -53,7 +53,7 @@ jobs:
           docker run --rm --entrypoint sh "$IMAGE" -ec \
             'test -s /opt/experiment/bundle/skills/implement/SKILL.md; test -x /experiment/scripts/issue-agent.sh'
       - name: Publish
-        if: github.event_name == 'workflow_dispatch' && inputs.publish
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish)
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ACTOR: ${{ github.actor }}
