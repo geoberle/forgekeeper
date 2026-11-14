@@ -457,5 +457,55 @@ class PublicationTests(unittest.TestCase):
                         )
 
 
+class FeedbackTests(unittest.TestCase):
+    def test_reply_only_preserves_pr_state_without_test_evidence(self):
+        for tree in ("initial", "changed"):
+            with self.subTest(tree=tree), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                job = root / ("a" * 32)
+                job.mkdir()
+                workflow.write_json(job / "config.json", {"initial_tree": "initial"})
+                with (
+                    patch.object(workflow, "STORAGE", root),
+                    patch.object(workflow, "clean"),
+                    patch.object(workflow, "command", side_effect=[tree, "checkpoint"]),
+                ):
+                    if tree == "initial":
+                        with self.assertRaisesRegex(RuntimeError, "Reply only"):
+                            workflow.stage("feedback-changes", job.name)
+                        self.assertEqual(
+                            workflow.read_json(job / "publication.json")["mode"], "unchanged"
+                        )
+                    else:
+                        workflow.stage("feedback-changes", job.name)
+                        self.assertFalse((job / "publication.json").exists())
+
+    def test_feedback_context_rejects_closed_or_changed_pr(self):
+        for state, sha in (("closed", "expected"), ("open", "other")):
+            with self.subTest(state=state, sha=sha), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                job = root / ("a" * 32)
+                job.mkdir()
+                workflow.write_json(
+                    job / "config.json",
+                    {
+                        "repository": "owner/repo",
+                        "pr": 48,
+                        "expected_head": "expected",
+                        "branch": "branch",
+                    },
+                )
+                with (
+                    patch.object(workflow, "STORAGE", root),
+                    patch.object(workflow, "credentials"),
+                    patch.object(workflow, "clean"),
+                    patch.object(
+                        workflow, "github", return_value={"state": state, "head": {"sha": sha}}
+                    ),
+                ):
+                    with self.assertRaisesRegex(RuntimeError, "PR closed or head changed"):
+                        workflow.stage("feedback-context", job.name)
+
+
 if __name__ == "__main__":
     unittest.main()

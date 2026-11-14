@@ -88,12 +88,19 @@ func (o *Options) Cycle(ctx context.Context) ([]Decision, error) {
 	if err != nil {
 		return nil, err
 	}
+	feedbackDecision, err := o.feedbackCycle(ctx, runs)
+	if err != nil {
+		return nil, err
+	}
+	if feedbackDecision != nil {
+		return []Decision{*feedbackDecision}, nil
+	}
 	decisions := Plan(candidates, runs)
 	if o.raw.Preview {
 		return decisions, nil
 	}
 	for _, c := range candidates {
-		if c.latest() != nil && c.latest().failed() && !c.CommentExists {
+		if c.latest() != nil && c.latest().failed() && len(c.latest().Labels["feedback_cursor"]) == 0 && !c.CommentExists {
 			if err := o.postFailure(ctx, c); err != nil {
 				return decisions, err
 			}

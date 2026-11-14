@@ -55,7 +55,7 @@ func safeStage(state RunState) string {
 
 func (o *Options) retry(ctx context.Context, c *Candidate) error {
 	r := c.latest()
-	if r == nil || !r.failed() {
+	if r == nil || !r.failed() || len(r.Labels["feedback_cursor"]) > 0 {
 		return nil
 	}
 	owner, repo, _ := strings.Cut(c.Project.Repository, "/")

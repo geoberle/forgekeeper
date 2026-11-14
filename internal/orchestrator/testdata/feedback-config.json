@@ -1,0 +1,23 @@
+{
+  "base": "main",
+  "base_sha": "base",
+  "branch": "fabro/existing",
+  "expected_head": "head",
+  "feedback_cursor": {
+    "Comments": 4,
+    "Reviews": 5,
+    "Inline": 6
+  },
+  "feedback_previous": {
+    "Comments": 1,
+    "Reviews": 2,
+    "Inline": 3
+  },
+  "feedback_user_id": 20,
+  "initial_tree": "tree",
+  "instructions": "",
+  "issue": 8,
+  "pr": 48,
+  "repository": "owner/repo",
+  "verification": null
+}

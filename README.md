@@ -232,3 +232,35 @@ Sorties Code wurde entfernt. Der alte Kind-Cluster wurde nicht gelöscht; sein K
 - [Versuchsergebnisse und bekannte Einschränkungen](RESULTS.md)
 - [Go-Orchestrierung](docs/design/orchestration.md)
 - [Begriffe](GLOSSARY.md)
+
+## Kommentare und Reviews an bestehenden PRs
+
+Forgekeeper pollt alle offenen PRs der konfigurierten Repositories, die über einen
+Fabro-Run zugeordnet sind. Neue PR-Kommentare, veröffentlichte Reviews und
+Inline-Kommentare des mit `--retry-user` konfigurierten Accounts starten
+Folgearbeit ohne Bot-Erwähnung. Eigene Bot-Beiträge und andere Autoren starten
+keinen Run; ihre Inhalte dienen nur als nicht vertrauenswürdiger Kontext.
+CI-Checks werden als Kontext geladen, lösen aber keine Arbeit aus.
+
+Die Folgearbeit verwendet denselben PR und Branch. Antworten und Rückfragen ohne
+Codeänderung überspringen Tests und Reviews und verändern den Draft-Status nicht.
+Codeänderungen durchlaufen Verifikation und Steve/David; anschließend bestimmt
+das Publication-Gate Draft oder Ready. Der Mensch mergt weiterhin selbst.
+Vor der Veröffentlichung prüft der Agent, dass niemand den PR geschlossen,
+gemergt oder dessen Head verändert hat. Es gibt keinen Force-Push.
+
+Fabro-Labels `github_pr` und `feedback_cursor` speichern pro Sammlung die höchsten
+Kommentar-/Review-IDs des gestarteten Auftrags, auch bei archivierten Runs.
+Während ein Run aktiv ist, wird kein zweiter gestartet; neue Beiträge bleiben
+für den nächsten Poll übrig. Ein fehlgeschlagener Auftrag wird am PR gemeldet
+und nicht automatisch wiederholt. Ein neuer Kommentar autorisiert einen neuen
+Versuch, der die bisherige Diskussion ebenfalls erhält. Bereits veröffentlichte
+Kommentare nachträglich zu editieren löst keinen neuen Run aus: Korrekturen bitte
+als neuen Kommentar schreiben. Vorhandene ältere Beiträge des autorisierten
+Accounts werden beim ersten Poll ebenfalls berücksichtigt.
+
+Wie beim Issue-Start gibt es keine serverseitige Create-Idempotenz: Nach einer
+unklaren Create-Antwort sucht der nächste Poll den Run anhand seiner Labels.
+Die zuvor bewusst akzeptierte Annahme, dass ein persistierter Run dabei sichtbar
+ist, bleibt bestehen. Fortschritt liegt in Fabro; keine zusätzliche lokale
+Orchestrierungsdatenbank wird angelegt.
