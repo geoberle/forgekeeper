@@ -16,7 +16,7 @@ with tempfile.TemporaryDirectory() as directory:
         check=True,
     )
     home = Path("/storage/home")
-    home.mkdir(parents=True, exist_ok=True)
+    (home / ".codex").mkdir(parents=True, exist_ok=True)
     (home / ".github-pat").write_text("smoke-test-not-a-credential")
     process = subprocess.Popen(
         ["/experiment/scripts/issue-agent.sh", "implement"],
