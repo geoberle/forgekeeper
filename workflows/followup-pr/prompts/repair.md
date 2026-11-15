@@ -2,4 +2,4 @@ Continue the same contribution to {{ inputs.repository }}#{{ inputs.issue }}. Re
 
 Update regression.md in the job directory when the repair changes the tested behavior or invalidates earlier evidence. Record the actual targeted commands and results, distinguishing assertion failures from setup failures and explaining any unavailable baseline.
 
-Write result.json with status ready or needs_human, summary, and remaining. Do not push, create PRs, merge, close issues, change labels, or modify the workflow helpers/config. There are at most three verification attempts.
+Update response.md so the eventual PR reply reflects the final repair, verification evidence and remaining questions. Write result.json with status ready or needs_human, summary, and remaining. This is existing-PR work; already_satisfied is not a valid result here. Do not push, create PRs, merge, close issues, change labels, or modify the workflow definition, workflow helpers, job config.json, or credentials. There are at most three verification attempts.
