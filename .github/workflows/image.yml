@@ -53,6 +53,10 @@ jobs:
           docker run --rm --entrypoint orchestrator "$IMAGE" --help
           docker run --rm --entrypoint sh "$IMAGE" -ec \
             'test -s /opt/experiment/bundle/skills/implement/SKILL.md; test -x /experiment/scripts/issue-agent.sh'
+      - name: Smoke-test agent startup and shared caches
+        run: |
+          docker run --rm --entrypoint python3 -v "$PWD/tests:/tests:ro" \
+            "$IMAGE" /tests/agent_startup.py
       - name: Install Helm
         run: |
           curl -fsSLo "$RUNNER_TEMP/helm-v3.16.4-linux-arm64.tar.gz" https://get.helm.sh/helm-v3.16.4-linux-arm64.tar.gz

@@ -4,6 +4,7 @@
 import hashlib
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -22,5 +23,8 @@ def cache_environment(repository, root=Path("/storage/caches/go")):
 
 
 if __name__ == "__main__":
-    environment = {**os.environ, **cache_environment(sys.argv[1])}
-    os.execvpe(sys.argv[2], sys.argv[2:], environment)
+    repository = subprocess.check_output(
+        ["git", "config", "--local", "--get", "forgekeeper.repository"], text=True
+    ).strip()
+    environment = {**os.environ, **cache_environment(repository)}
+    os.execvpe(sys.argv[1], sys.argv[1:], environment)

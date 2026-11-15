@@ -546,6 +546,7 @@ def stage(action, job_id):
         with exclude.open("a") as stream:
             stream.write("\n/.fabro-context.md\n/.fabro-review-*.md\n")
         artifact.write_text(markdown)
+        command("git", "config", "--local", "forgekeeper.repository", config["repository"])
         print(markdown, end="")
     elif action == "feedback-context":
         clean()
@@ -588,6 +589,7 @@ def stage(action, job_id):
             stream.write("\n/.fabro-context.md\n/.fabro-review-*.md\n")
         (job / "context.md").write_text(markdown)
         Path(".fabro-context.md").write_text(markdown)
+        command("git", "config", "--local", "forgekeeper.repository", config["repository"])
         print(markdown)
     elif action == "feedback-changes":
         clean()

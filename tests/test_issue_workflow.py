@@ -285,6 +285,10 @@ class ContextTests(unittest.TestCase):
                     redirect_stdout(output),
                 ):
                     workflow.stage("context", job.name)
+                self.assertEqual(
+                    workflow.command("git", "config", "--local", "--get", "forgekeeper.repository"),
+                    "owner/repo",
+                )
                 self.assertEqual(output.getvalue(), (job / "context.md").read_text())
                 self.assertEqual(output.getvalue(), (repo / ".fabro-context.md").read_text())
                 workflow.clean()
