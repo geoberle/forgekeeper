@@ -23,12 +23,12 @@ type RawOptions struct {
 	Interval                                                          time.Duration
 	Once, Preview, AllowHTTP                                          bool
 	Repository, RetryUser                                             string
-	Issue                                                             int
+	Issue, MaxConcurrentRuns                                          int
 }
 
 func DefaultOptions() *RawOptions {
 	return &RawOptions{
-		ProjectsDir: "/experiment/projects", Workflow: "/experiment/workflows/implement-issue/workflow.toml",
+		MaxConcurrentRuns: 1, ProjectsDir: "/experiment/projects", Workflow: "/experiment/workflows/implement-issue/workflow.toml",
 		Storage: "/storage/issue-jobs", GitHubTokenFile: "/storage/home/.github-pat", FabroURL: "http://127.0.0.1:32276", WebURL: "http://localhost:32277", Interval: time.Minute,
 	}
 }
@@ -40,6 +40,7 @@ func BindOptions(o *RawOptions, c *cobra.Command) {
 	f.StringVar(&o.GitHubTokenFile, "github-token-file", o.GitHubTokenFile, "Bot PAT file")
 	f.StringVar(&o.FabroURL, "fabro-url", o.FabroURL, "Fabro API origin")
 	f.StringVar(&o.WebURL, "web-url", o.WebURL, "Fabro links in issue comments")
+	f.IntVar(&o.MaxConcurrentRuns, "max-concurrent-runs", o.MaxConcurrentRuns, "Maximum active Fabro runs across all projects")
 	f.DurationVar(&o.Interval, "interval", o.Interval, "Polling interval")
 	f.BoolVar(&o.AllowHTTP, "allow-http-fabro", false, "Allow unencrypted Fabro API traffic on a trusted cluster network")
 	f.BoolVar(&o.Once, "once", false, "Reconcile once")
@@ -69,6 +70,9 @@ var repoPattern = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
 var runPattern = regexp.MustCompile(`^[0-9A-HJKMNP-TV-Z]{26}$`)
 
 func (o *RawOptions) Validate() (*ValidatedOptions, error) {
+	if o.MaxConcurrentRuns < 1 {
+		return nil, errors.New("max-concurrent-runs must be positive")
+	}
 	if !loginPattern.MatchString(o.RetryUser) || strings.Contains(o.RetryUser, "--") {
 		return nil, errors.New("retry-user must be a GitHub login")
 	}

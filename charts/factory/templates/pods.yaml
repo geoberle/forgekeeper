@@ -85,6 +85,7 @@ spec:
             - {{ printf "--retry-user=%s" (required "Set orchestrator.retryUser to the GitHub login allowed to retry" $.Values.orchestrator.retryUser) | quote }}
             - {{ printf "--web-url=%s" $.Values.webURL | quote }}
             - {{ printf "--interval=%s" $.Values.orchestrator.interval | quote }}
+            - {{ printf "--max-concurrent-runs=%v" $.Values.orchestrator.maxConcurrentRuns | quote }}
             {{- if $.Values.orchestrator.preview }}
             - --preview
             {{- end }}

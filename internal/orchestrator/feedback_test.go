@@ -123,7 +123,7 @@ func TestFeedbackCyclePreviewManagedPR(t *testing.T) {
 			defer server.Close()
 			gh := github.NewClient(server.Client())
 			gh.BaseURL, _ = gh.BaseURL.Parse(server.URL + "/")
-			o := &Options{&completedOptions{raw: RawOptions{Preview: true}, Projects: []Project{{Repository: "owner/repo"}}, GitHub: gh, RetryUserID: 20, BotID: 10}}
+			o := &Options{&completedOptions{raw: RawOptions{Preview: true, MaxConcurrentRuns: 1}, Projects: []Project{{Repository: "owner/repo"}}, GitHub: gh, RetryUserID: 20, BotID: 10}}
 			r := Run{Labels: map[string]string{"github_issue": "owner/repo#8", "github_pr": "48", "feedback_cursor": "11/0/0"}}
 			r.Lifecycle.Status.Kind = "failed"
 			d, err := o.feedbackCycle(context.Background(), []Run{r})
@@ -221,6 +221,7 @@ func TestFeedbackCycleScopesActiveRunsToPR(t *testing.T) {
 		{"other PR same issue", "owner/repo", "8", "49", false, true},
 		{"same number other repository", "other/repo", "8", "48", false, true},
 		{"pending feedback waits for capacity", "owner/repo", "9", "49", true, false},
+		{"pending feedback uses second slot", "owner/repo", "9", "49", true, false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			mergeChecked := false
@@ -248,19 +249,46 @@ func TestFeedbackCycleScopesActiveRunsToPR(t *testing.T) {
 			defer server.Close()
 			gh := github.NewClient(server.Client())
 			gh.BaseURL, _ = gh.BaseURL.Parse(server.URL + "/")
-			o := &Options{&completedOptions{raw: RawOptions{Preview: true}, Projects: []Project{{Repository: "owner/repo", AutoMerge: true}}, GitHub: gh, RetryUserID: 20, BotID: 10}}
+			o := &Options{&completedOptions{raw: RawOptions{Preview: true, MaxConcurrentRuns: 1}, Projects: []Project{{Repository: "owner/repo", AutoMerge: true}}, GitHub: gh, RetryUserID: 20, BotID: 10}}
+			if tt.name == "pending feedback uses second slot" {
+				o.raw.MaxConcurrentRuns = 2
+			}
 			o.Fabro = &FabroClient{BaseURL: server.URL, HTTP: server.Client()}
 			completed := Run{ID: "completed", Labels: map[string]string{"github_issue": "owner/repo#8", "github_pr": "48"}}
 			completed.Lifecycle.Status.Kind = "succeeded"
 			active := Run{ID: "active", Labels: map[string]string{"github_issue": tt.repository + "#" + tt.issue, "github_pr": tt.pr}}
 			active.Lifecycle.Status.Kind = "running"
 			d, err := o.feedbackCycle(context.Background(), []Run{active, completed})
-			if err != nil || d != nil {
+			if tt.name == "pending feedback uses second slot" {
+				if err != nil || d == nil || d.Action != "feedback" {
+					t.Fatalf("decision=%v err=%v", d, err)
+				}
+			} else if err != nil || d != nil {
 				t.Fatalf("decision=%v err=%v", d, err)
 			}
 			if mergeChecked != tt.checkMerge {
 				t.Fatalf("merge checked=%v, want %v", mergeChecked, tt.checkMerge)
 			}
 		})
+	}
+}
+
+func TestResumeFeedbackWithinConfiguredCapacity(t *testing.T) {
+	for _, limit := range []int{1, 2} {
+		o := &Options{&completedOptions{raw: RawOptions{Preview: true, MaxConcurrentRuns: limit}}}
+		submitted := Run{ID: "submitted", Labels: map[string]string{"feedback_cursor": "1/0/0"}}
+		submitted.Lifecycle.Status.Kind = "submitted"
+		running := Run{ID: "running"}
+		running.Lifecycle.Status.Kind = "running"
+		d, err := o.feedbackCycle(context.Background(), []Run{running, submitted})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if limit == 1 && d != nil {
+			t.Fatal("resumed over capacity")
+		}
+		if limit == 2 && (d == nil || d.Action != "resume") {
+			t.Fatal("did not resume reserved slot")
+		}
 	}
 }

@@ -106,7 +106,7 @@ func TestCyclePreviewCreateResumeAndFailure(t *testing.T) {
 			defer server.Close()
 			gh := github.NewClient(server.Client())
 			gh.BaseURL, _ = url.Parse(server.URL + "/")
-			opts := &Options{&completedOptions{raw: RawOptions{RetryUser: "retry-reviewer", Preview: mode == "preview", Storage: storage, FabroURL: server.URL, WebURL: "http://localhost:32277", Workflow: "workflow.toml"}, Projects: []Project{{Repository: "owner/repo", Verification: []string{"make verify"}}}, GitHub: gh, Fabro: &FabroClient{HTTP: server.Client(), BaseURL: server.URL}, BotID: 10, RetryUserID: 20, Log: logr.Discard(), Execute: func(_ context.Context, name string, args []string, dir string) ([]byte, error) {
+			opts := &Options{&completedOptions{raw: RawOptions{MaxConcurrentRuns: 1, RetryUser: "retry-reviewer", Preview: mode == "preview", Storage: storage, FabroURL: server.URL, WebURL: "http://localhost:32277", Workflow: "workflow.toml"}, Projects: []Project{{Repository: "owner/repo", Verification: []string{"make verify"}}}, GitHub: gh, Fabro: &FabroClient{HTTP: server.Client(), BaseURL: server.URL}, BotID: 10, RetryUserID: 20, Log: logr.Discard(), Execute: func(_ context.Context, name string, args []string, dir string) ([]byte, error) {
 				commands++
 				if name == "git" {
 					if args[0] == "clone" {

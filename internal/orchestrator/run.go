@@ -95,7 +95,7 @@ func (o *Options) Cycle(ctx context.Context) ([]Decision, error) {
 	if feedbackDecision != nil {
 		return []Decision{*feedbackDecision}, nil
 	}
-	decisions := Plan(candidates, runs)
+	decisions := Plan(candidates, runs, o.raw.MaxConcurrentRuns)
 	if o.raw.Preview {
 		return decisions, nil
 	}
@@ -115,7 +115,7 @@ func (o *Options) Cycle(ctx context.Context) ([]Decision, error) {
 		if err != nil {
 			return decisions, err
 		}
-		for _, now := range Plan(fresh, all) {
+		for _, now := range Plan(fresh, all, o.raw.MaxConcurrentRuns) {
 			if now.Repository != d.Repository || now.Issue != d.Issue || now.Action != d.Action {
 				continue
 			}

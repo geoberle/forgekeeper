@@ -17,6 +17,7 @@ orchestrator:
   retryUser: ""  # Required GitHub login for retry authorization.
   preview: true
   interval: 1m
+  maxConcurrentRuns: 1
   resources:
     requests:
       cpu: 100m

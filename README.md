@@ -99,7 +99,7 @@ Die Ausgabe nennt pro Issue die Aktion und den Grund, etwa `not_ready`, `blocked
 ./scripts/orchestrate.sh --retry-user YOUR_LOGIN --interval 1m
 ```
 
-Ein einzelner aktiver Orchestrator koordiniert zunächst **einen aktiven Run insgesamt**. Er wählt das älteste bearbeitbare Issue aus allen `projects/*.yaml`. Ein bereits eingereichter, noch nicht gestarteter Run wird wiederaufgenommen. `--once` gleicht genau einmal ab. Stoppen des Prozesses stoppt keine bereits laufenden Fabro-Runs; der nächste Orchestrator erkennt sie wieder.
+Ein einzelner aktiver Orchestrator begrenzt aktive Runs über `--max-concurrent-runs` (Standard: **1**). Im Helm-Chart heißt der Wert `orchestrator.maxConcurrentRuns`. Pro Issue beziehungsweise PR bleibt höchstens ein Run aktiv. Er wählt das älteste bearbeitbare Issue aus allen `projects/*.yaml`. Ein bereits eingereichter, noch nicht gestarteter Run wird wiederaufgenommen. `--once` gleicht genau einmal ab. Stoppen des Prozesses stoppt keine bereits laufenden Fabro-Runs; der nächste Orchestrator erkennt sie wieder.
 
 Fehlgeschlagene Runs erhalten einen Bot-Kommentar mit Schritt und Fabro-Link. **Nur eine 🚀-Reaktion vom konfigurierten `--retry-user` auf den Kommentar des jüngsten fehlgeschlagenen Runs** erlaubt einen neuen Versuch. Die Zuordnung erfolgt über GitHub-Benutzer-IDs. Alte oder fremde Reaktionen und kopierte Kommentare anderer Autoren lösen keinen Retry aus. Ready-Label, Abhängigkeiten und PR-Prüfung gelten weiterhin. Nach einem gemergten Teil-PR wird ein weiterhin bereites Issue automatisch erneut berücksichtigt.
 
@@ -303,8 +303,7 @@ gemergt oder dessen Head verändert hat. Es gibt keinen Force-Push.
 
 Fabro-Labels `github_pr` und `feedback_cursor` speichern pro Sammlung die höchsten
 Kommentar-/Review-IDs des gestarteten Auftrags, auch bei archivierten Runs.
-Während ein Run aktiv ist, wird kein zweiter gestartet; neue Beiträge bleiben
-für den nächsten Poll übrig. Ein fehlgeschlagener Auftrag wird am PR gemeldet
+Wenn alle Run-Slots belegt sind, bleiben neue Beiträge für den nächsten Poll übrig. Ein fehlgeschlagener Auftrag wird am PR gemeldet
 und nicht automatisch wiederholt. Ein neuer Kommentar autorisiert einen neuen
 Versuch, der die bisherige Diskussion ebenfalls erhält. Bereits veröffentlichte
 Kommentare nachträglich zu editieren löst keinen neuen Run aus: Korrekturen bitte

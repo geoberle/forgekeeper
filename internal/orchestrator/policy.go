@@ -169,7 +169,7 @@ func Decide(c Candidate) Decision {
 	return d
 }
 
-func Plan(candidates []Candidate, runs []Run) []Decision {
+func Plan(candidates []Candidate, runs []Run, maxConcurrentRuns int) []Decision {
 	ordered := append([]Candidate(nil), candidates...)
 	sort.Slice(ordered, func(i, j int) bool {
 		a, b := ordered[i].Issue.GetCreatedAt(), ordered[j].Issue.GetCreatedAt()
@@ -188,14 +188,14 @@ func Plan(candidates []Candidate, runs []Run) []Decision {
 	for _, c := range ordered {
 		d := Decide(c)
 		if d.Action == "start" {
-			if active > 0 {
+			if active >= maxConcurrentRuns {
 				d.Action = "wait"
 				d.Reason = "capacity"
 			} else {
 				active++
 			}
 		}
-		if d.Action == "resume" && active > 1 {
+		if d.Action == "resume" && active > maxConcurrentRuns {
 			d.Action = "wait"
 			d.Reason = "capacity"
 		}

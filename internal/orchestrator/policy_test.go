@@ -69,7 +69,7 @@ func TestPlanOldestAndGlobalCapacity(t *testing.T) {
 				r.Lifecycle.Status.Kind = "running"
 				runs = []Run{r}
 			}
-			got := Plan([]Candidate{a, b}, runs)
+			got := Plan([]Candidate{a, b}, runs, 1)
 			if got[0].Repository != "owner/old" {
 				t.Fatal(got)
 			}
@@ -100,5 +100,40 @@ func TestFailureCommentGolden(t *testing.T) {
 	}
 	if got := FailureComment("http://localhost:32277", "01M7ATV7XKXRZAXHWF2F104HQE", "verify", "retry-reviewer") + "\n"; got != string(data) {
 		t.Fatalf("unexpected comment:\n%s", got)
+	}
+}
+
+func TestPlanConfiguredCapacity(t *testing.T) {
+	for _, tt := range []struct {
+		name                  string
+		limit, active, starts int
+	}{
+		{"one slot", 1, 0, 1},
+		{"two free slots", 2, 0, 2},
+		{"second slot available", 2, 1, 1},
+		{"two occupied", 2, 2, 0},
+		{"over capacity", 1, 2, 0},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var runs []Run
+			for range tt.active {
+				r := Run{}
+				r.Lifecycle.Status.Kind = "running"
+				runs = append(runs, r)
+			}
+			candidates := []Candidate{
+				{Project: Project{Repository: "owner/repo"}, Issue: &github.Issue{Number: github.Ptr(1), State: github.Ptr("open"), Labels: []*github.Label{{Name: github.Ptr("ready-for-agent")}}}},
+				{Project: Project{Repository: "owner/repo"}, Issue: &github.Issue{Number: github.Ptr(2), State: github.Ptr("open"), Labels: []*github.Label{{Name: github.Ptr("ready-for-agent")}}}},
+			}
+			starts := 0
+			for _, d := range Plan(candidates, runs, tt.limit) {
+				if d.Action == "start" {
+					starts++
+				}
+			}
+			if starts != tt.starts {
+				t.Fatalf("starts=%d, want %d", starts, tt.starts)
+			}
+		})
 	}
 }

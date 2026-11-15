@@ -89,3 +89,15 @@ func TestRetryUserValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestConcurrentRunLimit(t *testing.T) {
+	for _, limit := range []int{-1, 0, 1, 2} {
+		raw := DefaultOptions()
+		raw.RetryUser = "reviewer"
+		raw.MaxConcurrentRuns = limit
+		_, err := raw.Validate()
+		if (err == nil) != (limit > 0) {
+			t.Errorf("limit=%d: %v", limit, err)
+		}
+	}
+}

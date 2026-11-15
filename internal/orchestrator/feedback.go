@@ -119,7 +119,7 @@ func (o *Options) feedbackCycle(ctx context.Context, runs []Run) (*Decision, err
 	}
 	for _, r := range runs {
 		if !r.terminal() {
-			if active == 1 && r.Lifecycle.Status.Kind == "submitted" && len(r.Labels["feedback_cursor"]) > 0 {
+			if active <= o.raw.MaxConcurrentRuns && r.Lifecycle.Status.Kind == "submitted" && len(r.Labels["feedback_cursor"]) > 0 {
 				d := &Decision{Action: "resume", Reason: "submitted_feedback", RunID: r.ID}
 				if o.raw.Preview {
 					return d, nil
@@ -250,7 +250,7 @@ func (o *Options) feedbackCycle(ctx context.Context, runs []Run) (*Decision, err
 				}
 				continue
 			}
-			if active > 0 {
+			if active >= o.raw.MaxConcurrentRuns {
 				continue
 			}
 			issue, _ := strconv.Atoi(managed[number])
