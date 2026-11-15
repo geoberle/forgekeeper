@@ -7,6 +7,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import sys
 import urllib.error
 import urllib.request
@@ -171,7 +172,18 @@ def cleanup(root, api, github, now):
             if path.exists():
                 if not shutil.rmtree.avoids_symlink_attacks:
                     raise RuntimeError("Safe directory removal is unavailable")
-                shutil.rmtree(path)
+
+                def remove_readonly(function, name, error):
+                    # Go module directories are normally read-only; retry only permission failures.
+                    if not isinstance(error[1], PermissionError):
+                        raise error[1]
+                    parent = checked_path(root, Path(name).parent)
+                    if parent != path and path not in parent.parents:
+                        raise RuntimeError("Removal escaped workspace")
+                    parent.chmod(parent.stat().st_mode | stat.S_IWUSR)
+                    function(name)
+
+                shutil.rmtree(path, onerror=remove_readonly)
         marker = job / "workspace-cleaned.tmp"
         marker.write_text(
             json.dumps(

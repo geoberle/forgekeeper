@@ -67,6 +67,7 @@ class StorageTests(unittest.TestCase):
             scope = scratch / "petri/scopes"
             scope.mkdir(parents=True)
             (scope / "large-cache").write_text("cache")
+            scope.chmod(0o555)
             (scratch / "events.json").write_text("history")
             (job / "review.json").write_text("evidence")
             (job / "run.json").write_text(json.dumps({"run_id": run_id}))
