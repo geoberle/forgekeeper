@@ -1,4 +1,6 @@
-Review the contribution to {{ inputs.repository }}#{{ inputs.issue }} as Steve and David in this single workflow step. Read context.md, config.json, result.json, verify.log (if present) and review-request.json under /storage/issue-jobs/{{ inputs.job }}/. Review the full diff from config.json's base_sha to the requested head, even if verification is blocked. Missing checks are not evidence of success. Review the code that is available, not only the latest commit.
+Review the contribution to {{ inputs.repository }}#{{ inputs.issue }} as Steve and David in this single workflow step. Read acceptance.md, context.md, config.json, result.json, verify.log (if present) and review-request.json under /storage/issue-jobs/{{ inputs.job }}/. Review the full diff from config.json's base_sha to the requested head, even if verification is blocked. Missing checks are not evidence of success. Review the code that is available, not only the latest commit.
+
+Check acceptance.md against the issue, merged work and current diff. Missing in-scope work without a concrete split reason is a blocking finding: request completion in this run. Explicit accepted gaps and requirements assigned to other tickets do not block issue completion. Assess code risk separately from completeness.
 
 Read both reviewer profiles explicitly:
 - Steve: /opt/experiment/bundle/agents/claude/stevekuznetsov-reviewer.md

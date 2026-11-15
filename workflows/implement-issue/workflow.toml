@@ -4,7 +4,7 @@ _version = 1
 graph = "workflow.fabro"
 
 [run]
-goal = "Implement one independently verifiable contribution to {{ inputs.repository }}#{{ inputs.issue }}"
+goal = "Complete the acceptance criteria of {{ inputs.repository }}#{{ inputs.issue }}"
 
 [run.inputs]
 repository = ""

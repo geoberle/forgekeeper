@@ -107,6 +107,13 @@ GitHub und Fabro sind die Zustandsquellen. Der Prozess verwendet lediglich einen
 
 ## Ein Issue bearbeiten
 
+Ein Issue wird standardmäßig in einem Run und einem PR vollständig umgesetzt.
+Teil-PRs brauchen einen konkreten Blocker oder eine notwendige getrennte Vorarbeit;
+kleine Diffs allein sind kein Aufteilungsgrund. Implementierung und Review prüfen
+die Akzeptanzkriterien einschließlich bereits gemergter Arbeit. Ausdrücklich
+akzeptierte Lücken und Anforderungen anderer Tickets verhindern den Abschluss nicht.
+
+
 Zuerst prüfen, ob das Issue bearbeitbar ist — ohne Run oder GitHub-Änderung:
 
 ```bash
