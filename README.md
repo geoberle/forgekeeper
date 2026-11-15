@@ -152,6 +152,15 @@ Beide Reviewer müssen den vollständigen PR unabhängig als `risk: low` mit
 `risk_reason` bewerten. Fehlende Risikobewertungen in alten Runs, fehlende
 Verifikation, Blocker, Drafts, Änderungsanforderungen, laufende Folgearbeit und
 abweichende Head- oder Base-SHAs verhindern den Merge. Es gibt keine Dateiallowlist.
+Die Reviewer bewerten Auswirkungen und Testabdeckung des konkreten Diffs unter der
+Bedingung später erfolgreicher Pflicht-CI. Ausstehende GitHub-CI allein erhöht das
+Risiko nicht; der Orchestrator prüft sie separat vor dem Merge. Medium/High müssen
+ein konkretes Fehlerszenario und die fehlende Evidenz oder Entscheidung benennen.
+Bestehende Projektlücken zählen nur, wenn die Änderung davon abhängt.
+Für Verhaltensänderungen dokumentiert der Implementierungsschritt einen gezielten
+Rot/Grün-Nachweis mit Befehlen und Ergebnissen in `regression.md` im Job-Verzeichnis
+oder erklärt die konkrete Einschränkung. Die Reviewer prüfen die Aussagekraft der
+Tests und geben relevante Abdeckungslücken als blockierende Findings zurück.
 Die Risikobewertung bleibt eine LLM-Entscheidung; die übrigen Bedingungen prüft Code.
 Ein Reply-only-Run erzeugt keine neue Merge-Freigabe.
 

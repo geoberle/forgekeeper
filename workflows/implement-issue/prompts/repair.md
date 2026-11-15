@@ -1,3 +1,5 @@
 Continue the same contribution to {{ inputs.repository }}#{{ inputs.issue }}. Read context.md, config.json, result.json and verify.log under /storage/issue-jobs/{{ inputs.job }}/. Use the implement, tdd and code-review skills under /storage/home/.agents/skills. Fix the concrete verification failure, review and commit on the current branch. Do not weaken tests just to pass. Missing tools, hardware, fixtures, or a required decision may require needs_human instead of more code.
 
+Update regression.md in the job directory when the repair changes the tested behavior or invalidates earlier evidence. Record the actual targeted commands and results, distinguishing assertion failures from setup failures and explaining any unavailable baseline.
+
 Write result.json with status ready or needs_human, summary, and remaining. Do not push, create PRs, merge, close issues, change labels, or modify the workflow helpers/config. There are at most three verification attempts.

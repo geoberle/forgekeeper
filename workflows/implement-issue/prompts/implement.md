@@ -4,6 +4,8 @@ Read /storage/issue-jobs/{{ inputs.job }}/context.md and config.json, the reposi
 
 Implement, review, and commit the change on the current branch. Do not push, create a PR, merge, close an issue, change labels, or enable auto-merge. Do not change the workflow, its helpers, config, or credentials. The final PR agent step handles GitHub writes. The orchestrator alone may merge low-risk PRs after its checks; other PRs require a human.
 
+For behavioral changes, establish a targeted regression test: show the intended assertion failing without the fix and passing with it. Prefer the test-first red/green sequence; if needed, use an isolated temporary checkout for the baseline or counterexample and leave the final workspace intact. A build/setup failure is not a valid red result. Write regression.md under /storage/issue-jobs/{{ inputs.job }}/ with the tested behavior, exact commands, baseline/fix identity or precise temporary mutation, exit codes and relevant output. On correction rounds update the evidence for the final change. If this is impractical, explain the concrete limitation and available alternative evidence; never fabricate execution results. Documentation-only and reply-only changes do not require artificial tests.
+
 Write /storage/issue-jobs/{{ inputs.job }}/result.json:
 {"status":"ready","summary":"what changed","remaining":"what is still missing, or why this completes the issue"}
 If blocked or no useful code change remains, use status "needs_human" and explain why in summary. Do not create an empty commit or pretend the issue is complete. With a useful committed diff, needs_human proceeds to review and draft publication; without a diff the workflow stops.

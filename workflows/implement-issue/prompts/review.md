@@ -10,21 +10,21 @@ Do not edit source, commit, push, create PRs, merge, or modify workflow/configur
 
 If review.md and review-response.md exist, inspect the previous findings and the implementer's answers. Preserve finding IDs for recurring problems. Verify fixes against the actual code. Unresolved disagreements requiring a human decision use status needs_human; do not demand endless rewrites.
 
-Write this exact JSON structure, replacing the sample findings with actual findings (empty lists are valid):
+Write this exact JSON structure, choosing one risk enum value and replacing the sample findings with actual findings (empty lists are valid):
 {
   "head": "exact head from review-request.json",
   "reviewers": {
     "steve": {
       "status": "complete",
-      "risk": "high",
-      "risk_reason": "Explain impact, reversibility, coverage and uncertainty",
+      "risk": "low|medium|high",
+      "risk_reason": "Explain the diff-specific impact, reversibility, evidence and any remaining failure scenario",
       "summary": "Review conclusion and scope",
       "findings": [{"id": "steve-1", "severity": "blocking", "location": "path:line", "problem": "Concrete defect", "impact": "Why it matters"}]
     },
     "david": {
       "status": "complete",
-      "risk": "high",
-      "risk_reason": "Explain impact, reversibility, coverage and uncertainty",
+      "risk": "low|medium|high",
+      "risk_reason": "Explain the diff-specific impact, reversibility, evidence and any remaining failure scenario",
       "summary": "Review conclusion and scope",
       "findings": []
     }
@@ -33,4 +33,13 @@ Write this exact JSON structure, replacing the sample findings with actual findi
 
 Status is complete or needs_human. Severity is blocking or suggestion. IDs must be unique across both reviewers. Report missing evidence honestly. Never include credentials in any output.
 
-Assess merge risk independently for the full PR diff, not only the latest correction. Set risk to low, medium or high and provide risk_reason. Low requires bounded, understood impact, adequate tests and no unresolved uncertainty; a small diff alone is insufficient. Missing evidence, security implications, credentials/permissions changes, destructive behavior, or uncertain compatibility are not low risk. No fixed file allowlist applies. Both low-risk verdicts may authorize automatic merge after deterministic checks. Never lower risk merely to make the workflow pass.
+Assess the risk introduced by the full PR diff independently, conditional on all configured mandatory CI checks passing before merge. The orchestrator checks CI on the published commit after PR creation. Pending or not-yet-created GitHub CI is a waiting condition, not by itself a reason for medium/high risk or needs_human. Record known failures honestly; a failure caused by this diff is a finding, and missing change-relevant coverage remains a review concern even when CI is green.
+
+Choose exactly one risk value and explain it in risk_reason:
+- low: bounded, understood impact; practical rollback; tests exercise the changed contract, relevant failure paths and side effects. Reasonable confidence is sufficient; zero uncertainty is not required.
+- medium: a concrete change-relevant uncertainty, coverage gap or broader compatibility/operational impact remains.
+- high: substantial potential harm, difficult recovery, or inadequately controlled security, permission, data-loss or destructive behavior.
+
+For medium/high, identify the affected behavior, a plausible failure scenario, why current evidence cannot rule it out, and what evidence or decision would resolve it. Existing project limitations matter only when this diff depends on or changes the unverified behavior. Assess the contribution separately from whether the parent issue or entire project is complete. Diff size and file paths alone do not establish low risk; no fixed file allowlist applies. Both low verdicts may authorize automatic merge only after the deterministic gates pass. Judge independently without targeting a desired merge rate.
+
+For behavioral changes, inspect regression.md in the job directory when present and check its commands/results against the actual tests and diff. Prefer a targeted test that fails for the intended behavior without the fix and passes with it; compilation/setup failures do not establish regression coverage. Check meaningful assertions, negative cases and relevant side effects rather than test counts. If change-relevant coverage is insufficient, add a blocking finding describing the concrete test needed so the implementation loop can address it. If the evidence is unavailable, state that explicitly; do not invent a red/green result. Documentation-only changes need no artificial regression test.
