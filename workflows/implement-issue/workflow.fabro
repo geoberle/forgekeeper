@@ -14,6 +14,8 @@ digraph ImplementIssue {
     review_decision [script="python3 /experiment/scripts/issue-workflow.py review-decision {{ inputs.job }}", max_visits=3]
     review_retry [script="python3 /experiment/scripts/issue-workflow.py review-retry {{ inputs.job }}", max_visits=3]
     work_ready [script="python3 /experiment/scripts/issue-workflow.py work-ready {{ inputs.job }}"]
+    completion_route [script="python3 /experiment/scripts/issue-workflow.py completion-route {{ inputs.job }}"]
+    close_satisfied [script="python3 /experiment/scripts/issue-workflow.py close-satisfied {{ inputs.job }}", on_failure="exit"]
     publication [script="python3 /experiment/scripts/issue-workflow.py publication {{ inputs.job }}", on_failure="exit"]
     history [script="python3 /experiment/scripts/issue-workflow.py publication-history {{ inputs.job }}", on_failure="exit"]
     pr [backend="acp", acp.command="/experiment/scripts/issue-agent.sh pr {{ inputs.repository }}", prompt="@prompts/pr.md", on_failure="exit"]
@@ -27,9 +29,12 @@ digraph ImplementIssue {
     retry -> review_prepare
     repair -> result
     review_prepare -> review -> review_gate -> review_decision
-    review_decision -> publication [condition="outcome=succeeded"]
+    review_decision -> completion_route [condition="outcome=succeeded"]
     review_decision -> review_retry
     review_retry -> implement [condition="outcome=succeeded"]
     review_retry -> publication
+    completion_route -> close_satisfied [condition="outcome=succeeded"]
+    completion_route -> publication
+    close_satisfied -> exit
     publication -> history -> pr -> exit
 }

@@ -2,6 +2,7 @@
 """Deterministic command stages for the issue workflow."""
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -250,6 +251,92 @@ def verify(job, config):
     print(f"Verification passed for {head}")
 
 
+def completion_digest(job):
+    return hashlib.sha256(
+        json.dumps(
+            [
+                (job / name).read_text()
+                for name in ("result.json", "acceptance.md", "issue-snapshot.json")
+            ]
+        ).encode()
+    ).hexdigest()
+
+
+def already_satisfied(job):
+    result = job / "result.json"
+    return result.exists() and read_json(result).get("status") == "already_satisfied"
+
+
+def close_satisfied_issue(job, config):
+    clean()
+    if "pr" in config or not already_satisfied(job):
+        raise RuntimeError("Issue closure requires an already-satisfied issue run")
+    tree = command("git", "rev-parse", "HEAD^{tree}")
+    if tree != command("git", "rev-parse", config["base_sha"] + "^{tree}"):
+        raise RuntimeError("Already-satisfied completion must not introduce changes")
+    approved = read_json(job / "review-approved.json")
+    if (
+        approved.get("tree") != tree
+        or approved.get("completion_digest") != completion_digest(job)
+        or read_json(job / "verified.json").get("tree") != tree
+    ):
+        raise RuntimeError(
+            "Issue closure requires current verification and both completion reviews"
+        )
+    repo, number = config["repository"], config["issue"]
+    original = read_json(job / "issue-snapshot.json")
+    ticket = github(f"repos/{repo}/issues/{number}")
+    if any(ticket.get(key) != original.get(key) for key in ("id", "title", "body")):
+        raise RuntimeError("Issue changed after the acceptance audit")
+    if ticket.get("state") == "closed":
+        print("Issue already closed; no GitHub changes needed")
+        return
+    eligible(
+        ticket,
+        pages(f"repos/{repo}/issues/{number}/dependencies/blocked_by"),
+        pages(f"repos/{repo}/pulls?state=open"),
+        repo,
+        number,
+    )
+    metadata = github(f"repos/{repo}")
+    branch = github(f"repos/{repo}/commits/{metadata['default_branch']}")
+    if branch["sha"] != config["base_sha"]:
+        raise RuntimeError("Default branch changed after the acceptance audit")
+    marker = f"<!-- forgekeeper:already-satisfied:{read_json(job / 'run.json')['run_id']} -->"
+    bot = github("user")["id"]
+    comments = pages(f"repos/{repo}/issues/{number}/comments")
+    if not any(
+        c.get("user", {}).get("id") == bot and marker in (c.get("body") or "") for c in comments
+    ):
+        body = (
+            marker
+            + "\n## Already implemented — reviewed completion\n\n"
+            + f"Audited base commit: `{config['base_sha']}`. No new PR is necessary.\n\n"
+            + (job / "acceptance.md").read_text()
+            + "\n\n"
+            + (job / "review.md").read_text()
+        )
+        for secret in verification_secrets():
+            body = body.replace(secret, "[REDACTED]")
+        github_write(f"repos/{repo}/issues/{number}/comments", "POST", {"body": body})
+    github_write(
+        f"repos/{repo}/issues/{number}", "PATCH", {"state": "closed", "state_reason": "completed"}
+    )
+    print(f"Closed {repo}#{number}: already satisfied, verified and approved by Steve and David")
+
+
+def github_write(path, method, payload):
+    result = subprocess.run(
+        ["gh", "api", path, "--method", method, "--input", "-"],
+        input=json.dumps(payload),
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if result.returncode:
+        raise RuntimeError("GitHub mutation failed; credentials and response omitted")
+
+
 def prepare_review(job):
     clean()
     verified = {
@@ -260,7 +347,10 @@ def prepare_review(job):
     round_number = read_json(previous)["round"] + 1 if previous.exists() else 1
     if round_number > 3:
         raise RuntimeError("Two review correction rounds exhausted; needs human attention")
-    write_json(previous, {**verified, "round": round_number})
+    request = {**verified, "round": round_number}
+    if already_satisfied(job):
+        request["completion_digest"] = completion_digest(job)
+    write_json(previous, request)
     for name in ("review.json", "review-approved.json", "review-complete.json"):
         (job / name).unlink(missing_ok=True)
 
@@ -277,6 +367,9 @@ def review_gate(job):
         or command("git", "rev-parse", "HEAD^{tree}") != request["tree"]
     ):
         raise RuntimeError("Review does not match the verified commit")
+    completion = already_satisfied(job)
+    if completion and request.get("completion_digest") != completion_digest(job):
+        raise RuntimeError("Completion evidence changed after review preparation")
     reviewers = review.get("reviewers")
     if not isinstance(reviewers, dict) or set(reviewers) != {"steve", "david"}:
         raise RuntimeError("Both Steve and David reviews are required")
@@ -292,6 +385,8 @@ def review_gate(job):
         ):
             raise RuntimeError("Invalid reviewer report")
         human |= report["status"] == "needs_human"
+        if completion and report.get("issue_complete") is not True:
+            human = True
         lines.extend(
             [
                 f"## {name.title()}",
@@ -302,6 +397,10 @@ def review_gate(job):
                 "",
             ]
         )
+        if completion:
+            lines.extend(
+                [f"All acceptance criteria satisfied: {report.get('issue_complete') is True}", ""]
+            )
         for finding in report["findings"]:
             if (
                 not isinstance(finding, dict)
@@ -342,7 +441,10 @@ def review_gate(job):
         },
     )
     if not blocking and not human:
-        write_json(job / "review-approved.json", {"head": head, "tree": request["tree"]})
+        approval = {"head": head, "tree": request["tree"]}
+        if completion:
+            approval["completion_digest"] = request["completion_digest"]
+        write_json(job / "review-approved.json", approval)
 
 
 def publication_history(job, config):
@@ -426,11 +528,16 @@ def stage(action, job_id):
         raise RuntimeError("Invalid job input; use run-issue.sh")
     job = STORAGE / job_id
     config = read_json(job / "config.json")
-    if action in ("context", "feedback-context"):
+    if action in ("context", "feedback-context", "close-satisfied"):
         credentials()
     if action == "context":
         clean()
-        markdown = context_markdown(snapshot(config["repository"], config["issue"]))
+        context = snapshot(config["repository"], config["issue"])
+        write_json(
+            job / "issue-snapshot.json",
+            {key: context["issue"].get(key) for key in ("id", "title", "body")},
+        )
+        markdown = context_markdown(context)
         (job / "context.md").write_text(markdown)
         artifact = Path(".fabro-context.md")
         if artifact.exists():
@@ -499,7 +606,7 @@ def stage(action, job_id):
     elif action == "result":
         result = read_json(job / "result.json")
         if (
-            result.get("status") not in ("ready", "needs_human")
+            result.get("status") not in ("ready", "needs_human", "already_satisfied")
             or not result.get("summary")
             or "remaining" not in result
         ):
@@ -507,11 +614,23 @@ def stage(action, job_id):
                 "Implementation needs human attention: "
                 + str(result.get("summary", "missing result"))
             )
-        if not command("git", "diff", "--name-only", config["base_sha"], "HEAD"):
+        changed = command("git", "diff", "--name-only", config["base_sha"], "HEAD")
+        if already_satisfied(job):
+            clean()
+            if changed or "pr" in config:
+                raise RuntimeError("Already-satisfied completion requires no changes and no PR")
+            if not (job / "acceptance.md").read_text().strip():
+                raise RuntimeError("Acceptance evidence is required")
+        elif not changed:
             raise RuntimeError("No contribution to publish; needs human attention")
     elif action == "work-ready":
-        if read_json(job / "result.json")["status"] != "ready":
+        if read_json(job / "result.json")["status"] not in ("ready", "already_satisfied"):
             raise RuntimeError("Contribution needs human attention; review for draft publication")
+    elif action == "completion-route":
+        if not already_satisfied(job):
+            raise RuntimeError("Contribution requires PR publication")
+    elif action == "close-satisfied":
+        close_satisfied_issue(job, config)
     elif action == "publication":
         clean()
         head = {
@@ -578,6 +697,8 @@ def main():
         "result",
         "work-ready",
         "publication",
+        "completion-route",
+        "close-satisfied",
         "publication-history",
         "verify",
         "retry",

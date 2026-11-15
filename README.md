@@ -140,6 +140,17 @@ Der Ablauf ist:
 2. `implement`: Codex verwendet den Implement-Skill und committet seinen Beitrag.
 3. `result` / `verify`: Ergebnis prüfen und feste Projektkommandos ausführen. Bei fehlgeschlagenen Prüfungen sind höchstens zwei Reparaturrunden erlaubt.
 4. `review`: Steve und David prüfen denselben getesteten Commit in einem ACP-Step. Das deterministische Gate verlangt beide Berichte. Blockierende Findings gehen als `review.json` und `review.md` zurück an `implement`; nach höchstens zwei Korrekturrunden bleibt der Beitrag ein Draft. Notwendige menschliche Entscheidungen führen ebenfalls zum Draft; ungültige Berichte stoppen den Run. Nach Änderungen laufen Tests und beide Reviews erneut.
+
+   Ist das Ticket im ausgecheckten Basisstand bereits vollständig erfüllt, meldet
+   `implement` den Status `already_satisfied` mit Belegen in `acceptance.md`.
+   Die normale Verifikation läuft trotzdem. Steve und David prüfen unabhängig
+   jedes Akzeptanzkriterium und müssen beide ausdrücklich `issue_complete: true`
+   bestätigen. Ein eigener Abschluss-Step kommentiert die Nachweise und beide
+   Reviews am Issue und schließt es als erledigt, ohne PR. Änderungen am Quellbaum,
+   veraltete Nachweise, ein inzwischen geändertes Issue oder ein neuer Stand des
+   Default-Branches verhindern das Schließen. Bei fehlender Zustimmung bleibt
+   das Issue offen; eine menschliche Entscheidung ist erforderlich.
+
 5. `publication`: Ein Code-Gate erlaubt einen normalen PR nur mit erfolgreicher Verifikation und Review-Freigabe für denselben Commit. Brauchbare Beiträge mit blockierten Prüfungen, offenen Findings oder `needs_human` werden als Draft veröffentlicht. Ohne Diff stoppt der Run.
 6. `pr`: Codex verwendet den PR-Skill, pusht und öffnet den PR mit Git/`gh`. Anschließend verknüpft er ihn mit Fabro.
 
