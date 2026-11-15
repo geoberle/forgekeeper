@@ -96,6 +96,10 @@ spec:
                   name: {{ $.Values.secretName }}
                   key: FABRO_DEV_TOKEN
             {{- if eq $component "fabro" }}
+            {{- range $step, $config := $.Values.fabro.codex }}
+            - name: {{ printf "CODEX_%s_CONFIG" ($step | upper) }}
+              value: {{ $config | toJson | quote }}
+            {{- end }}
             - name: SESSION_SECRET
               valueFrom:
                 secretKeyRef:

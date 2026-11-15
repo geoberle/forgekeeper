@@ -324,3 +324,30 @@ unverändert. Bei Folgearbeit bleibt der bisherige PR-Head erhalten; nur die neu
 hinzugekommenen Commits werden bereinigt. Merge-Commits in diesem neuen Bereich
 stoppen die Veröffentlichung, statt sie stillschweigend zu flatten. Bereits
 veröffentlichte oder gemergte Historie wird nicht nachträglich geändert.
+
+
+### Codex-Modelle
+
+Implementierung und Reparatur verwenden Sol/medium, der Review-Step mit Steve
+und David Astra/low und die PR-Erstellung Sol/low. Das gilt sowohl für neue
+Issues als auch für PR-Folgearbeit. Überschreiben über Helm:
+
+```yaml
+fabro:
+  codex:
+    implement:
+      model: gpt-6.1-sol
+      model_reasoning_effort: medium
+    review:
+      model: gpt-6-astra
+      model_reasoning_effort: low
+    pr:
+      model: gpt-6.1-sol
+      model_reasoning_effort: low
+```
+
+Außerhalb von Helm nehmen `CODEX_IMPLEMENT_CONFIG`, `CODEX_REVIEW_CONFIG` und
+`CODEX_PR_CONFIG` dieselben Einstellungen als JSON-Objekt an. Der Step-Launcher
+übergibt die ausgewählte Konfiguration als `CODEX_CONFIG` an Codex ACP.
+Die Einstellungen gelten für neu gestartete Agent-Sessions. Fabros eigener
+Modellprovider ist separat konfiguriert.
