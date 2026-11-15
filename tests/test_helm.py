@@ -33,6 +33,9 @@ class HelmTest(unittest.TestCase):
                     self.assertFalse(pod["automountServiceAccountToken"])
                     self.assertEqual(pod["nodeSelector"]["kubernetes.io/arch"], "arm64")
                     self.assertEqual(pod["securityContext"]["runAsUser"], 1000)
+                    self.assertEqual(
+                        pod["securityContext"]["fsGroupChangePolicy"], "OnRootMismatch"
+                    )
                     self.assertEqual(len(pod["containers"]), 1)
                     jobs = next(v for v in pod["volumes"] if v["name"] == "jobs")
                     self.assertEqual(
