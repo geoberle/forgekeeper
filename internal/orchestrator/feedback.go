@@ -117,12 +117,9 @@ func (o *Options) feedbackCycle(ctx context.Context, runs []Run) (*Decision, err
 			active++
 		}
 	}
-	if active > 1 {
-		return nil, nil
-	}
 	for _, r := range runs {
 		if !r.terminal() {
-			if r.Lifecycle.Status.Kind == "submitted" && len(r.Labels["feedback_cursor"]) > 0 {
+			if active == 1 && r.Lifecycle.Status.Kind == "submitted" && len(r.Labels["feedback_cursor"]) > 0 {
 				d := &Decision{Action: "resume", Reason: "submitted_feedback", RunID: r.ID}
 				if o.raw.Preview {
 					return d, nil
@@ -140,7 +137,6 @@ func (o *Options) feedbackCycle(ctx context.Context, runs []Run) (*Decision, err
 				}
 				return d, o.Fabro.Start(ctx, r.ID)
 			}
-			return nil, nil
 		}
 	}
 	for _, project := range o.Projects {
@@ -149,6 +145,8 @@ func (o *Options) feedbackCycle(ctx context.Context, runs []Run) (*Decision, err
 		}
 		owner, repo, _ := strings.Cut(project.Repository, "/")
 		managed := map[int]string{}
+		activePRs := map[int]bool{}
+		activeIssues := map[string]bool{}
 		cursors := map[int]feedbackCursor{}
 		latestFeedback := map[int]Run{}
 		latestRun := map[int]Run{}
@@ -172,6 +170,14 @@ func (o *Options) feedbackCycle(ctx context.Context, runs []Run) (*Decision, err
 				number, err = strconv.Atoi(s)
 				if err != nil {
 					return nil, errors.New("invalid PR identity")
+				}
+			}
+			if !r.terminal() {
+				if number > 0 {
+					activePRs[number] = true
+				} else {
+					// A run may not have published its PR association yet.
+					activeIssues[issueText] = true
 				}
 			}
 			if number <= 0 {
@@ -204,6 +210,9 @@ func (o *Options) feedbackCycle(ctx context.Context, runs []Run) (*Decision, err
 		}
 		sort.Ints(numbers)
 		for _, number := range numbers {
+			if activePRs[number] || activeIssues[managed[number]] {
+				continue
+			}
 			pr, _, err := o.GitHub.PullRequests.Get(ctx, owner, repo, number)
 			if err != nil {
 				return nil, errors.New("managed PR lookup failed")
@@ -239,6 +248,9 @@ func (o *Options) feedbackCycle(ctx context.Context, runs []Run) (*Decision, err
 						return nil, err
 					}
 				}
+				continue
+			}
+			if active > 0 {
 				continue
 			}
 			issue, _ := strconv.Atoi(managed[number])

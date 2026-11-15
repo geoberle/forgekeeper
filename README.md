@@ -151,7 +151,9 @@ Forgekeeper-Run-Zuordnung sind für Folgearbeit oder Auto-Merge zugelassen.
 Beide Reviewer müssen den vollständigen PR unabhängig als `risk: low` mit
 `risk_reason` bewerten. Fehlende Risikobewertungen in alten Runs, fehlende
 Verifikation, Blocker, Drafts, Änderungsanforderungen, laufende Folgearbeit und
-abweichende Head- oder Base-SHAs verhindern den Merge. Es gibt keine Dateiallowlist.
+abweichende Head- oder Base-SHAs verhindern den Merge. Aktive Runs sperren nur
+den zugeordneten PR; ohne PR-Zuordnung sperren sie vorsichtshalber PRs desselben
+Issues. Unabhängige Runs verhindern die Merge-Prüfung nicht. Es gibt keine Dateiallowlist.
 Die Reviewer bewerten Auswirkungen und Testabdeckung des konkreten Diffs unter der
 Bedingung später erfolgreicher Pflicht-CI. Ausstehende GitHub-CI allein erhöht das
 Risiko nicht; der Orchestrator prüft sie separat vor dem Merge. Medium/High müssen

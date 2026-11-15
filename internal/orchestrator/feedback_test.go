@@ -209,3 +209,58 @@ func TestLaunchFeedbackRecordsCursorAndUsesExistingBranch(t *testing.T) {
 		t.Fatal(config)
 	}
 }
+
+func TestFeedbackCycleScopesActiveRunsToPR(t *testing.T) {
+	for _, tt := range []struct {
+		name, repository, issue, pr string
+		pending, checkMerge         bool
+	}{
+		{"same PR", "owner/repo", "8", "48", false, false},
+		{"same issue before PR association", "owner/repo", "8", "", false, false},
+		{"other issue", "owner/repo", "9", "49", false, true},
+		{"other PR same issue", "owner/repo", "8", "49", false, true},
+		{"same number other repository", "other/repo", "8", "48", false, true},
+		{"pending feedback waits for capacity", "owner/repo", "9", "49", true, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			mergeChecked := false
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/repos/owner/repo/pulls/48":
+					_, _ = w.Write([]byte(`{"number":48,"state":"open","mergeable":true,"mergeable_state":"clean","user":{"id":10},"base":{"repo":{"full_name":"owner/repo"}},"head":{"sha":"head","repo":{"full_name":"owner/repo"}}}`))
+				case "/repos/owner/repo/issues/48/comments":
+					if tt.pending {
+						_, _ = w.Write([]byte(`[{"id":12,"user":{"id":20},"body":"Fix this"}]`))
+					} else {
+						_, _ = w.Write([]byte(`[]`))
+					}
+				case "/repos/owner/repo/pulls/48/reviews", "/repos/owner/repo/pulls/48/comments":
+					_, _ = w.Write([]byte(`[]`))
+				case "/api/v1/runs/completed/state":
+					mergeChecked = true
+					// No publication evidence: exercise eligibility without allowing a merge.
+					_, _ = w.Write([]byte(`{"spec":{"settings":{"run":{"inputs":{}}}}}`))
+				default:
+					t.Errorf("unexpected request %s", r.URL.Path)
+					w.WriteHeader(500)
+				}
+			}))
+			defer server.Close()
+			gh := github.NewClient(server.Client())
+			gh.BaseURL, _ = gh.BaseURL.Parse(server.URL + "/")
+			o := &Options{&completedOptions{raw: RawOptions{Preview: true}, Projects: []Project{{Repository: "owner/repo", AutoMerge: true}}, GitHub: gh, RetryUserID: 20, BotID: 10}}
+			o.Fabro = &FabroClient{BaseURL: server.URL, HTTP: server.Client()}
+			completed := Run{ID: "completed", Labels: map[string]string{"github_issue": "owner/repo#8", "github_pr": "48"}}
+			completed.Lifecycle.Status.Kind = "succeeded"
+			active := Run{ID: "active", Labels: map[string]string{"github_issue": tt.repository + "#" + tt.issue, "github_pr": tt.pr}}
+			active.Lifecycle.Status.Kind = "running"
+			d, err := o.feedbackCycle(context.Background(), []Run{active, completed})
+			if err != nil || d != nil {
+				t.Fatalf("decision=%v err=%v", d, err)
+			}
+			if mergeChecked != tt.checkMerge {
+				t.Fatalf("merge checked=%v, want %v", mergeChecked, tt.checkMerge)
+			}
+		})
+	}
+}
