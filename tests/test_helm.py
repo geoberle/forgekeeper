@@ -58,6 +58,20 @@ class HelmTest(unittest.TestCase):
                 config = tomllib.loads(objects["test-factory-settings"]["data"]["settings.toml"])
                 self.assertEqual(config["server"]["storage"]["root"], "/storage")
                 self.assertFalse(any(d["kind"] == "Secret" for d in documents))
+                cleanup = next(d for d in documents if d["kind"] == "CronJob")
+                self.assertEqual(cleanup["spec"]["concurrencyPolicy"], "Forbid")
+                cleanup_pod = cleanup["spec"]["jobTemplate"]["spec"]["template"]["spec"]
+                self.assertEqual(
+                    cleanup_pod["securityContext"]["fsGroupChangePolicy"], "OnRootMismatch"
+                )
+                self.assertEqual(
+                    [
+                        v["persistentVolumeClaim"]["claimName"]
+                        for v in cleanup_pod["volumes"]
+                        if "persistentVolumeClaim" in v
+                    ],
+                    ["test-factory-server", "test-factory-jobs"],
+                )
 
     def test_existing_claims(self):
         rendered = subprocess.check_output(

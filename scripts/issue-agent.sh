@@ -26,4 +26,4 @@ pr)
     ;;
 esac
 export CODEX_CONFIG
-exec /usr/local/bin/codex-acp
+exec python3 /experiment/scripts/shared_cache.py "${2:?repository required}" /usr/local/bin/codex-acp

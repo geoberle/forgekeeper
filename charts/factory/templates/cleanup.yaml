@@ -1,0 +1,67 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "factory.name" . }}-cleanup
+spec:
+  schedule: "17 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          nodeSelector:
+            {{- toYaml .Values.nodeSelector | nindent 12 }}
+          securityContext:
+            {{- include "factory.security" . | nindent 12 }}
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          containers:
+            - name: cleanup
+              image: {{ include "factory.image" . | quote }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              securityContext:
+                {{- include "factory.containerSecurity" . | nindent 16 }}
+              command: [python3, /experiment/scripts/cleanup-workspaces.py]
+              args:
+                - --server=http://{{ include "factory.name" . }}-fabro:32276
+              env:
+                - name: FABRO_DEV_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.secretName }}
+                      key: FABRO_DEV_TOKEN
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+              volumeMounts:
+                - name: storage
+                  mountPath: /storage
+                - name: jobs
+                  mountPath: /storage/issue-jobs
+                - name: credentials
+                  mountPath: /run/secrets
+                  readOnly: true
+          volumes:
+            - name: storage
+              persistentVolumeClaim:
+                claimName: {{ .Values.storage.server.existingClaim | default (printf "%s-server" (include "factory.name" .)) }}
+            - name: jobs
+              persistentVolumeClaim:
+                claimName: {{ .Values.storage.jobs.existingClaim | default (printf "%s-jobs" (include "factory.name" .)) }}
+            - name: credentials
+              secret:
+                secretName: {{ .Values.secretName }}
+                defaultMode: 0440
+                items:
+                  - key: github-pat
+                    path: github-pat

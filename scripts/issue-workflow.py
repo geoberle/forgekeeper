@@ -9,6 +9,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from shared_cache import cache_environment
+
 STORAGE = Path("/storage/issue-jobs")
 
 
@@ -216,7 +218,7 @@ def verify(job, config):
                 log.flush()
                 result = subprocess.run(
                     ["bash", "-o", "pipefail", "-c", check],
-                    env=verification_environment(),
+                    env={**verification_environment(), **cache_environment(config["repository"])},
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     text=True,

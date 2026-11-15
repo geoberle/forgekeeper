@@ -2,10 +2,13 @@ import importlib.util
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+
+sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
 
 spec = importlib.util.spec_from_file_location(
     "issue_workflow", Path(__file__).parents[1] / "scripts/issue-workflow.py"
@@ -97,6 +100,11 @@ class EligibilityTests(unittest.TestCase):
 
 
 class VerificationTests(unittest.TestCase):
+    def setUp(self):
+        patcher = patch.object(workflow, "cache_environment", return_value={})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_dirty_first_attempt_has_diagnostics_and_can_dispatch_repair(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -106,7 +114,7 @@ class VerificationTests(unittest.TestCase):
             (job / "verified.json").write_text('{"head":"old"}')
             with patch.object(workflow, "clean", side_effect=RuntimeError("Workspace is dirty")):
                 with self.assertRaisesRegex(RuntimeError, "Workspace is dirty"):
-                    workflow.verify(job, {"verification": ["exit 0"]})
+                    workflow.verify(job, {"repository": "owner/repo", "verification": ["exit 0"]})
             self.assertEqual(json.loads((job / "attempt.json").read_text()), {"count": 1})
             self.assertIn("Workspace is dirty", (job / "verify.log").read_text())
             self.assertFalse((job / "verified.json").exists())
@@ -149,9 +157,11 @@ class VerificationTests(unittest.TestCase):
                 ):
                     if exit_code:
                         with self.assertRaisesRegex(RuntimeError, "exit 7"):
-                            workflow.verify(job, {"verification": [check]})
+                            workflow.verify(
+                                job, {"repository": "owner/repo", "verification": [check]}
+                            )
                     else:
-                        workflow.verify(job, {"verification": [check]})
+                        workflow.verify(job, {"repository": "owner/repo", "verification": [check]})
                 log = (job / "verify.log").read_text()
                 for secret in (
                     "synthetic-fabro-secret",
@@ -190,7 +200,7 @@ class VerificationTests(unittest.TestCase):
                 patch.object(workflow, "command", return_value="sha"),
             ):
                 with self.assertRaisesRegex(RuntimeError, "exit 7"):
-                    workflow.verify(job, {"verification": ["exit 7"]})
+                    workflow.verify(job, {"repository": "owner/repo", "verification": ["exit 7"]})
             self.assertFalse((job / "verified.json").exists())
             self.assertEqual(json.loads((job / "attempt.json").read_text())["count"], 1)
 
@@ -234,7 +244,9 @@ class VerificationTests(unittest.TestCase):
             previous = Path.cwd()
             try:
                 os.chdir(repo)
-                workflow.verify(job, {"verification": ["python3 -B calculator.py"]})
+                workflow.verify(
+                    job, {"repository": "owner/repo", "verification": ["python3 -B calculator.py"]}
+                )
                 self.assertEqual(
                     json.loads((job / "verified.json").read_text())["tree"],
                     workflow.command("git", "rev-parse", "HEAD^{tree}"),

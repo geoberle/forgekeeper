@@ -359,3 +359,23 @@ Außerhalb von Helm nehmen `CODEX_IMPLEMENT_CONFIG`, `CODEX_REVIEW_CONFIG` und
 übergibt die ausgewählte Konfiguration als `CODEX_CONFIG` an Codex ACP.
 Die Einstellungen gelten für neu gestartete Agent-Sessions. Fabros eigener
 Modellprovider ist separat konfiguriert.
+
+### Workspace retention and Go caches
+
+Agent steps and verification commands use repository-scoped Go caches under
+`/storage/caches/go/<repository-hash>/{modules,build}`. These live on the server
+PVC and survive workspace cleanup. Project verification commands must not
+override `GOMODCACHE` or `GOCACHE` with workspace-local paths. The lint cache
+remains local to each workspace.
+
+The chart runs workspace cleanup hourly at minute 17. Successful runs expire
+24 hours after completion; failed/dead runs expire after 48 hours. Runs with
+an open associated PR, or an active run for the same issue, are retained.
+Cleanup archives the run before deleting its source checkout and Petri workspace
+scopes. Run history, logs, review evidence, issue/PR mappings and feedback cursors
+remain available. A `workspace-cleaned.json` marker records each cleanup.
+
+Cleaned runs are historical records: do not unarchive or resume them. Retry by
+starting a new run with a fresh checkout. The shared caches are not deleted by
+this job. Both workload and cleanup pods use `fsGroupChangePolicy: OnRootMismatch`
+to avoid walking every cached file during ordinary startup.
